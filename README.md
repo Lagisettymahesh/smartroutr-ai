@@ -76,3 +76,26 @@ Double-click `smartroute_final.html` in Chrome
 
 SDG 11 — Sustainable Cities | SDG 9 — Innovation & Infrastructure
 Azure IoT Hub · Azure ML · Bengaluru Smart City Platform
+---
+
+SDG 11 — Sustainable Cities | SDG 9 — Innovation & Infrastructure  
+Azure IoT Hub · Azure ML · Bengaluru Smart City Platform  
+
+---
+
+## 📚 Research & References
+
+### 🔗 Technologies & Tools
+- OpenStreetMap — https://www.openstreetmap.org  
+- Google Maps Platform — https://developers.google.com/maps  
+- FastAPI — https://fastapi.tiangolo.com  
+- Leaflet.js — https://leafletjs.com  
+- Azure Machine Learning — https://azure.microsoft.com  
+
+### 📊 Research Basis
+- Bengaluru traffic congestion patterns  
+- Peak hour traffic analysis  
+- AI-based traffic prediction models  
+
+### 📖 Note
+This project uses publicly available tools and simulated data for demonstration purposes.
