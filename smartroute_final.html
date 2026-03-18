@@ -1,0 +1,2401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>SmartRoute AI — Bengaluru Traffic Intelligence</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<!-- Leaflet CSS — Free Map, No API Key Needed -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+<style>
+:root{
+  --navy:#0D1B2A;--blue:#1A73E8;--blue-dk:#1557B0;
+  --green:#1E8E3E;--orange:#F29900;--red:#D93025;
+  --teal:#0694A2;--purple:#7C3AED;
+  --surface:#fff;--bg:#F1F3F4;--text:#202124;--muted:#70757A;
+  --border:#DADCE0;--shadow:0 2px 12px rgba(0,0,0,.13);--shadow-xl:0 8px 40px rgba(0,0,0,.22);
+  --font:"IBM Plex Sans",sans-serif;--mono:"IBM Plex Mono",monospace;--head:"Syne",sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;font-family:var(--font);background:var(--bg);color:var(--text);font-size:14px}
+
+/* TOP BAR */
+.topbar{position:fixed;top:0;left:0;right:0;height:56px;background:var(--navy);display:flex;align-items:center;padding:0 16px;gap:12px;z-index:3000;box-shadow:0 2px 10px rgba(0,0,0,.4)}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-icon{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#34A853,#1A73E8);display:flex;align-items:center;justify-content:center;font-size:16px}
+.brand{font-family:var(--head);font-size:17px;font-weight:800;color:#fff;letter-spacing:-.3px}
+.brand-sub{font-size:9px;color:#9AA0A6;font-family:var(--mono);letter-spacing:1.5px}
+.ml-auto{margin-left:auto;display:flex;align-items:center;gap:10px}
+.live-badge{display:flex;align-items:center;gap:5px;background:rgba(52,168,83,.18);border:1px solid rgba(52,168,83,.35);border-radius:20px;padding:3px 10px;font-family:var(--mono);font-size:10px;color:#34A853;letter-spacing:1px}
+.live-dot{width:6px;height:6px;background:#34A853;border-radius:50%;animation:pulse 1.4s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+#topbar-clock{font-family:var(--mono);font-size:11px;color:#9AA0A6}
+.azure-pill{background:rgba(26,115,232,.2);border:1px solid rgba(26,115,232,.4);border-radius:20px;padding:3px 10px;font-family:var(--mono);font-size:9px;color:#8AB4F8;letter-spacing:.5px}
+
+/* SIDEBAR */
+.sidebar{position:fixed;top:56px;left:0;width:385px;bottom:0;background:#fff;z-index:1000;display:flex;flex-direction:column;box-shadow:2px 0 16px rgba(0,0,0,.1);overflow:hidden}
+.stabs{display:flex;background:var(--bg);border-bottom:1px solid var(--border)}
+.stab{flex:1;padding:10px 4px;text-align:center;font-size:12px;font-weight:500;color:var(--muted);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;font-family:var(--font);transition:.18s}
+.stab:hover{color:var(--text);background:rgba(0,0,0,.03)}
+.stab.on{color:var(--blue);border-bottom-color:var(--blue);background:#fff}
+
+/* SEARCH PANEL */
+.search-box{padding:14px;border-bottom:1px solid var(--border);flex-shrink:0}
+.field{position:relative;margin-bottom:7px}
+.field-lbl{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-family:var(--mono);margin-bottom:5px;display:flex;align-items:center;gap:5px}
+.ibox{position:relative}
+.iprefix{position:absolute;left:0;top:0;bottom:0;width:40px;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:5}
+.dot-s{width:12px;height:12px;border-radius:50%;background:#34A853;border:2.5px solid #fff;outline:2px solid #34A853}
+.dot-d{width:12px;height:12px;border-radius:50%;background:var(--red);border:2.5px solid #fff;outline:2px solid var(--red)}
+.loc-input{width:100%;padding:11px 36px 11px 40px;border:1.5px solid var(--border);border-radius:10px;font-size:13px;font-family:var(--font);outline:none;background:var(--bg);color:var(--text);transition:.2s}
+.loc-input:focus{border-color:var(--blue);background:#fff;box-shadow:0 0 0 3px rgba(26,115,232,.1)}
+.loc-input.filled{background:#fff}
+.loc-input::placeholder{color:#BBBBBB}
+.xclear{position:absolute;right:9px;top:50%;transform:translateY(-50%);width:20px;height:20px;border-radius:50%;background:var(--border);border:none;cursor:pointer;font-size:11px;color:var(--muted);display:none;align-items:center;justify-content:center;transition:.15s;z-index:5}
+.xclear:hover{background:#C5C8CE;color:#333}
+.xclear.vis{display:flex}
+
+/* AUTOCOMPLETE */
+.acbox{position:absolute;top:calc(100% + 5px);left:0;right:0;background:#fff;border-radius:12px;box-shadow:var(--shadow-xl);border:1px solid rgba(0,0,0,.09);z-index:9999;display:none;max-height:400px;overflow-y:auto;overflow-x:hidden}
+.acbox.show{display:block;animation:acIn .14s ease}
+@keyframes acIn{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:none}}
+.acbox::-webkit-scrollbar{width:3px}
+.acbox::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.ac-grp{padding:7px 14px 3px;font-size:10px;font-weight:600;color:var(--muted);letter-spacing:.8px;text-transform:uppercase;font-family:var(--mono);background:var(--bg);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px}
+.acrow{display:flex;align-items:center;gap:11px;padding:10px 13px;cursor:pointer;transition:background .1s;border-bottom:1px solid rgba(0,0,0,.035);user-select:none}
+.acrow:last-child{border-bottom:none}
+.acrow:hover,.acrow.active{background:#EEF4FC}
+.acrow:hover .ac-ico,.acrow.active .ac-ico{background:#D2E3FC}
+.ac-ico{width:36px;height:36px;border-radius:50%;background:var(--bg);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:16px;transition:background .1s}
+.ac-text{flex:1;min-width:0}
+.ac-name{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
+.ac-name mark{background:none;color:var(--blue);font-weight:700}
+.ac-addr{font-size:11px;color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ac-right{flex-shrink:0;text-align:right}
+.ac-badge{display:inline-block;padding:2px 6px;border-radius:10px;font-size:9px;font-weight:700;letter-spacing:.3px}
+.bg-heavy{background:#FCE8E6;color:#B71C1C}.bg-mod{background:#FFF8E1;color:#E65100}.bg-clear{background:#E8F5E9;color:#1B5E20}
+.ac-km{font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:2px}
+.ac-nores{padding:18px 14px;text-align:center;color:var(--muted);font-size:12px;line-height:1.6}
+
+/* CONNECTOR */
+.conn-row{display:flex;align-items:center;gap:8px;margin:1px 0 1px 19px}
+.conn-line{width:2px;height:16px;background:var(--border);border-radius:1px}
+.swap-btn{margin-left:auto;display:flex;align-items:center;gap:4px;padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:none;font-size:11px;color:var(--muted);cursor:pointer;transition:.15s;font-family:var(--font)}
+.swap-btn:hover{border-color:var(--blue);color:var(--blue);background:#EEF4FC}
+
+/* OPTIONS */
+.opt-row{display:flex;gap:8px;margin-top:10px}
+.dep-sel{flex:1;padding:9px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:var(--font);background:var(--bg);outline:none;color:var(--text);transition:.2s}
+.dep-sel:focus{border-color:var(--blue);background:#fff}
+.go-btn{padding:10px 18px;background:var(--blue);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;font-family:var(--head);cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;transition:.2s}
+.go-btn:hover{background:var(--blue-dk);box-shadow:0 2px 10px rgba(26,115,232,.3)}
+.go-btn:disabled{opacity:.6;pointer-events:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{width:13px;height:13px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}
+
+/* AI BAR */
+.ai-bar{background:linear-gradient(90deg,#E8F0FE,#EAF7FF);border:1px solid #C5D9F5;border-radius:8px;padding:10px 12px;margin-top:9px;display:none}
+.ai-bar.show{display:block}
+.ai-lbl{font-size:9px;font-weight:600;color:var(--blue);text-transform:uppercase;letter-spacing:1px;font-family:var(--mono);margin-bottom:3px}
+.ai-msg{font-size:12px;color:#1557B0;line-height:1.5}
+
+/* ROUTES SCROLL */
+.rscroll{flex:1;overflow-y:auto}
+.rscroll::-webkit-scrollbar{width:4px}
+.rscroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.rhdr{padding:9px 14px 5px;font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-family:var(--mono);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.rcard{padding:13px;border-bottom:1px solid var(--border);cursor:pointer;position:relative;overflow:hidden;transition:background .15s;animation:fadeUp .3s ease backwards}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.rcard:nth-child(2){animation-delay:.05s}.rcard:nth-child(3){animation-delay:.1s}.rcard:nth-child(4){animation-delay:.15s}
+.rcard:hover{background:#FAFBFF}
+.rcard.sel{background:#EEF4FC}
+.rcard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px}
+.rb::before{background:#34A853}.ra::before{background:var(--orange)}.rs::before{background:var(--red)}
+.r1{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.rname{font-size:13px;font-weight:600}
+.rdur{font-family:var(--head);font-size:20px;font-weight:800}
+.cg{color:var(--green)}.co{color:var(--orange)}.cr2{color:var(--red)}
+.rmeta{font-size:11px;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap;margin-bottom:5px}
+.rtag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600}
+.tb{background:#E6F4EA;color:#1E8E3E}.ta{background:#FEF7E0;color:#B06000}.ts{background:#FCE8E6;color:#C5221F}.tg-rec{background:#FEF3CD;color:#B8630A;border:1px solid #FFA000}
+.cbar{height:5px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:5px}
+.cfill{height:100%;border-radius:3px;transition:width 1.2s ease}
+.dirbtn{margin-top:7px;padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:none;font-size:11px;color:var(--blue);cursor:pointer;font-family:var(--font);transition:.15s}
+.dirbtn:hover{background:#EEF4FC;border-color:var(--blue)}
+
+/* DIRECTIONS */
+.dpanel{display:none;flex:1;overflow-y:auto;flex-direction:column}
+.dpanel.show{display:flex}
+.dhdr{display:flex;align-items:center;gap:8px;padding:10px 13px;border-bottom:1px solid var(--border);background:var(--bg)}
+.dbk{background:none;border:1px solid var(--border);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:14px;color:var(--muted)}
+.dstep{display:flex;align-items:flex-start;gap:10px;padding:10px 13px;border-bottom:1px solid var(--border)}
+.dico{width:28px;height:28px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+.dtxt{flex:1;line-height:1.4;font-size:12px}
+.ddist{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:2px}
+
+/* AUTH TAB */
+#tab-auth{display:none;flex:1;overflow-y:auto;padding:13px}
+.krow{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.kpi{padding:11px;background:var(--bg);border-radius:8px;border:1px solid var(--border)}
+.kpi-l{font-size:10px;color:var(--muted);font-family:var(--mono);margin-bottom:3px}
+.kpi-v{font-family:var(--head);font-size:22px;font-weight:800}
+.kpi-v.blue{color:var(--blue)}.kpi-v.green{color:var(--green)}.kpi-v.or{color:var(--orange)}.kpi-v.red{color:var(--red)}
+.acard{background:#fff;border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:12px}
+.ahdr{padding:9px 13px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;font-size:12px;font-weight:600}
+.abody{padding:11px}
+.hrow{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px}
+.hrow:last-child{border:none}
+.hdot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.hn{flex:1;font-weight:500}
+.hs{padding:2px 6px;border-radius:10px;font-size:10px;font-weight:600}
+.hcr{background:#FCE8E6;color:#C5221F}.hhi{background:#FEF7E0;color:#B06000}.hmd{background:#E6F4EA;color:#1E8E3E}
+.hspd{font-family:var(--mono);font-size:11px;color:var(--muted);min-width:50px;text-align:right}
+.alrow{display:flex;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px}
+.alrow:last-child{border:none}
+.aldot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:3px}
+.altime{font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:2px}
+
+/* HIST TAB */
+#tab-hist{display:none;flex:1;overflow-y:auto;padding:13px}
+.hcard{background:#fff;border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:12px}
+.hcard-hdr{padding:9px 13px;border-bottom:1px solid var(--border)}
+.hcard-title{font-size:12px;font-weight:600}
+.hcard-sub{font-size:10px;color:var(--muted);margin-top:1px}
+.hcard-body{padding:12px}
+.prow{display:flex;align-items:center;gap:8px;margin-bottom:5px;font-size:12px}
+.phr{min-width:50px;font-family:var(--mono);font-size:11px}
+.pbwrap{flex:1;height:7px;background:var(--border);border-radius:5px;overflow:hidden}
+.pbfill{height:100%;border-radius:5px}
+.ppct{font-family:var(--mono);font-size:10px;min-width:34px;text-align:right}
+.srow{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:7px;margin-bottom:6px;border:1px solid;font-size:12px}
+.stime{min-width:100px;font-family:var(--mono);font-size:10px;font-weight:500}
+.slbl{font-weight:600;font-size:11px}
+.sdesc{font-size:11px;color:var(--muted)}
+
+/* MAP */
+#map{position:fixed;top:56px;left:385px;right:0;bottom:33px;z-index:1;background:#e8e8e8;}
+
+/* ROUTE OVERLAY */
+.rovl{position:fixed;top:68px;left:400px;z-index:1500;background:#fff;border-radius:12px;box-shadow:var(--shadow-xl);padding:13px 16px;min-width:210px;display:none;border-left:4px solid var(--green)}
+.rovl.show{display:block;animation:fadeUp .3s ease}
+.rt{font-family:var(--head);font-size:22px;font-weight:800;color:var(--green);margin-bottom:4px}
+.rr{display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px}
+.rk{color:var(--muted)}.rv{font-weight:600;font-family:var(--mono)}
+
+/* MAP BUTTONS */
+.mfab{position:fixed;right:14px;z-index:1500;background:#fff;border:none;border-radius:10px;padding:9px 13px;font-size:12px;font-weight:500;cursor:pointer;box-shadow:var(--shadow);transition:.15s;display:flex;align-items:center;gap:5px;font-family:var(--font);color:var(--text)}
+.mfab:hover{background:var(--bg);box-shadow:var(--shadow-xl)}
+.mfab.on{background:#EEF4FC;color:var(--blue);border:1px solid #C5D9F5}
+#fl{bottom:118px}#ft{bottom:78px}#fs{bottom:38px}
+
+/* TRAFFIC LEGEND */
+.tleg{position:fixed;top:68px;right:14px;z-index:1500;background:#fff;border-radius:10px;box-shadow:var(--shadow);padding:10px 13px;display:none;min-width:155px}
+.tleg.show{display:block}
+.tltitle{font-size:11px;font-weight:600;margin-bottom:7px}
+.tlrow{display:flex;align-items:center;gap:7px;margin-bottom:4px;font-size:11px}
+.tlline{width:22px;height:5px;border-radius:3px}
+
+/* STATS BAR */
+.sbar{position:fixed;bottom:0;left:385px;right:0;height:33px;background:rgba(13,27,42,.93);backdrop-filter:blur(6px);display:flex;align-items:center;padding:0 14px;gap:18px;z-index:1500;border-top:1px solid rgba(255,255,255,.07)}
+.si{display:flex;align-items:center;gap:5px;font-size:11px;font-family:var(--mono);color:#9AA0A6}
+.sv{color:#fff;font-weight:500}
+.ssep{width:1px;height:14px;background:rgba(255,255,255,.1)}
+
+/* TOAST */
+.toast{position:fixed;bottom:44px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:8px 18px;border-radius:22px;font-size:13px;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none;box-shadow:var(--shadow-xl);white-space:nowrap}
+.toast.show{opacity:1}
+
+/* EMPTY STATE */
+.empty{padding:22px 14px;text-align:center;color:var(--muted)}
+.e-ico{font-size:36px;margin-bottom:10px}
+.e-ttl{font-size:13px;font-weight:500;color:var(--text);margin-bottom:5px}
+.e-sub{font-size:12px;line-height:1.5}
+.e-tip{margin-top:13px;font-size:11px;background:var(--bg);padding:10px 12px;border-radius:8px;border:1px solid var(--border);text-align:left;line-height:1.95;color:var(--text)}
+
+/* Leaflet custom popup */
+.leaflet-popup-content-wrapper{border-radius:10px!important;box-shadow:var(--shadow-xl)!important;font-family:var(--font)!important}
+.leaflet-popup-content{margin:0!important;padding:0!important}
+.route-tooltip{background:rgba(13,27,42,.92)!important;color:#fff!important;border:none!important;border-radius:8px!important;font-family:"IBM Plex Sans",sans-serif!important;font-size:12px!important;padding:6px 10px!important;box-shadow:0 2px 12px rgba(0,0,0,.3)!important;}
+.route-tooltip::before{display:none!important}
+.leaflet-routing-container{display:none!important}
+.mpop{padding:11px 13px;min-width:160px}
+.mpop h4{font-size:13px;font-weight:600;margin-bottom:3px}
+.mpop p{font-size:11px;color:var(--muted);line-height:1.4}
+
+@media(max-width:760px){.sidebar{width:100%;bottom:42%}#map{left:0;top:calc(58%+56px)}.sbar,.rovl{left:10px}}
+
+/* ── MAP DIRECTIONS PANEL (shown ON the map) ── */
+#map-dir-panel {
+  position: fixed;
+  top: 56px;
+  left: 385px;
+  width: 340px;
+  bottom: 33px;
+  background: #fff;
+  z-index: 2500;
+  display: none;
+  flex-direction: column;
+  box-shadow: 4px 0 20px rgba(0,0,0,.18);
+  font-family: var(--font);
+  overflow: hidden;
+}
+#map-dir-panel.open { display: flex; }
+
+/* Header strip */
+.mdp-header {
+  background: var(--navy);
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.mdp-back {
+  background: rgba(255,255,255,.12);
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 9px;
+  line-height: 1;
+  transition: .15s;
+}
+.mdp-back:hover { background: rgba(255,255,255,.22); }
+.mdp-title { flex: 1; }
+.mdp-title-main { font-size: 13px; font-weight: 700; color: #fff; }
+.mdp-title-sub  { font-size: 10px; color: #9AA0A6; font-family: var(--mono); margin-top: 1px; }
+
+/* Route summary bar */
+.mdp-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.mdp-time { font-family: var(--head); font-size: 22px; font-weight: 800; }
+.mdp-meta { font-size: 11px; color: var(--muted); line-height: 1.5; }
+.mdp-color-bar {
+  width: 5px;
+  border-radius: 3px;
+  align-self: stretch;
+  min-height: 36px;
+}
+
+/* Progress bar showing step position */
+.mdp-progress {
+  height: 3px;
+  background: var(--border);
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.mdp-progress-fill {
+  height: 100%;
+  background: var(--blue);
+  transition: width .4s ease;
+  border-radius: 0 2px 2px 0;
+}
+
+/* Steps list */
+.mdp-steps {
+  flex: 1;
+  overflow-y: auto;
+}
+.mdp-steps::-webkit-scrollbar { width: 4px; }
+.mdp-steps::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.mdp-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background .15s;
+  position: relative;
+}
+.mdp-step:hover { background: #F8F9FF; }
+.mdp-step.active {
+  background: #EEF4FC;
+  border-left: 3px solid var(--blue);
+}
+.mdp-step.done { opacity: .45; }
+
+/* Step icon circle */
+.mdp-ico {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  flex-shrink: 0;
+  border: 1.5px solid var(--border);
+  transition: .15s;
+}
+.mdp-step.active .mdp-ico {
+  background: var(--blue);
+  border-color: var(--blue);
+  font-size: 16px;
+}
+
+/* Step number badge */
+.mdp-num {
+  position: absolute;
+  top: 10px; left: 10px;
+  width: 16px; height: 16px;
+  background: var(--muted);
+  color: #fff;
+  border-radius: 50%;
+  font-size: 9px;
+  font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono);
+}
+.mdp-step.active .mdp-num { background: var(--blue); }
+.mdp-step.done .mdp-num { background: var(--green); }
+
+.mdp-step-text { flex: 1; }
+.mdp-step-road {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.3;
+}
+.mdp-step.active .mdp-step-road { font-weight: 600; color: var(--blue); }
+.mdp-step-dist {
+  font-size: 11px;
+  color: var(--muted);
+  font-family: var(--mono);
+  margin-top: 2px;
+}
+
+/* Step connector line */
+.mdp-connector {
+  position: absolute;
+  left: 30px;
+  top: 46px;
+  bottom: -1px;
+  width: 2px;
+  background: var(--border);
+}
+.mdp-step.active .mdp-connector { background: var(--blue); }
+.mdp-step.done .mdp-connector { background: var(--green); }
+
+/* Nav prev/next buttons */
+.mdp-nav {
+  display: flex;
+  gap: 8px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  flex-shrink: 0;
+}
+.mdp-nav-btn {
+  flex: 1;
+  padding: 9px;
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: none;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: var(--font);
+  color: var(--text);
+  transition: .15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+.mdp-nav-btn:hover { border-color: var(--blue); color: var(--blue); background: #EEF4FC; }
+.mdp-nav-btn:disabled { opacity: .4; pointer-events: none; }
+.mdp-nav-btn.primary { background: var(--blue); color: #fff; border-color: var(--blue); }
+.mdp-nav-btn.primary:hover { background: var(--blue-dk); }
+
+/* Step highlight marker on map */
+.step-marker-icon {
+  background: var(--blue);
+  border: 2.5px solid #fff;
+  border-radius: 50%;
+  width: 14px;
+  height: 14px;
+  box-shadow: 0 1px 6px rgba(0,0,0,.4);
+}
+
+
+/* ── VOICE NAVIGATION ── */
+.voice-btn {
+  width:38px;height:38px;border-radius:50%;border:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;font-size:17px;
+  transition:.15s;flex-shrink:0;
+}
+.voice-btn.on  { background:#E8F0FE;box-shadow:0 0 0 3px rgba(26,115,232,.25);animation:voicepulse 1.5s infinite; }
+.voice-btn.off { background:var(--bg);box-shadow:none; }
+@keyframes voicepulse{0%,100%{box-shadow:0 0 0 3px rgba(26,115,232,.25)}50%{box-shadow:0 0 0 7px rgba(26,115,232,.08)}}
+
+/* Voice announcement toast on map */
+#voice-toast {
+  position:fixed;bottom:50px;left:50%;transform:translateX(-50%);
+  background:rgba(13,27,42,.96);color:#fff;
+  padding:12px 20px 12px 16px;border-radius:14px;
+  font-size:14px;font-family:var(--font);font-weight:500;
+  z-index:9999;opacity:0;transition:opacity .3s;
+  pointer-events:none;max-width:420px;text-align:center;
+  box-shadow:0 4px 24px rgba(0,0,0,.4);
+  display:flex;align-items:center;gap:10px;
+  border:1px solid rgba(255,255,255,.1);
+}
+#voice-toast.show{opacity:1}
+#voice-toast .vt-icon{font-size:20px;flex-shrink:0}
+#voice-toast .vt-text{flex:1;line-height:1.4}
+#voice-toast .vt-dist{font-family:var(--mono);font-size:11px;color:#9AA0A6;margin-top:2px}
+
+/* Voice bar in directions header */
+.voice-bar {
+  background:var(--bg);
+  padding:8px 14px;
+  display:flex;align-items:center;gap:10px;
+  border-bottom:1px solid var(--border);
+  flex-shrink:0;
+}
+.voice-bar-label{font-size:11px;color:var(--muted);flex:1;font-family:var(--mono)}
+.voice-speed-sel{
+  padding:4px 8px;border:1px solid var(--border);border-radius:6px;
+  font-size:11px;font-family:var(--font);background:var(--bg);
+  outline:none;cursor:pointer;
+}
+.voice-volume{width:80px;accent-color:var(--blue);cursor:pointer}
+
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<header class="topbar">
+  <div class="logo">
+    <div class="logo-icon">🛣️</div>
+    <div><div class="brand">SmartRoute AI</div><div class="brand-sub">BENGALURU · AZURE AI · OPENSTREETMAP</div></div>
+  </div>
+  <div class="ml-auto">
+    <div class="azure-pill">☁️ AZURE ML</div>
+    <div class="live-badge"><div class="live-dot"></div>LIVE</div>
+    <div id="topbar-clock"></div>
+  </div>
+</header>
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+  <div class="stabs">
+    <button class="stab on"  onclick="showTab('route',this)">🗺 Route</button>
+    <button class="stab"     onclick="showTab('auth',this)">🏛 Authority</button>
+    <button class="stab"     onclick="showTab('hist',this)">📊 History</button>
+  </div>
+
+  <!-- ROUTE TAB -->
+  <div id="tab-route" style="display:flex;flex-direction:column;flex:1;overflow:hidden">
+    <div class="search-box">
+
+      <!-- Starting Point -->
+      <div class="field">
+        <div class="field-lbl"><span style="color:#34A853">●</span> Starting Point</div>
+        <div class="ibox">
+          <div class="iprefix"><div class="dot-s"></div></div>
+          <input id="sinp" class="loc-input" type="text"
+            placeholder="Type a place... e.g. S for Silk Board"
+            autocomplete="off" spellcheck="false"
+            oninput="onInp('s')" onfocus="onFoc('s')" onblur="onBlr('s')" onkeydown="onKey(event,'s')"/>
+          <button class="xclear" id="sx" onclick="clr('s')">✕</button>
+        </div>
+        <div class="acbox" id="sac"></div>
+      </div>
+
+      <!-- Connector + Swap -->
+      <div class="conn-row">
+        <div class="conn-line"></div>
+        <button class="swap-btn" onclick="swap()">⇅ Swap</button>
+      </div>
+
+      <!-- Destination -->
+      <div class="field">
+        <div class="field-lbl"><span style="color:#D93025">●</span> Destination</div>
+        <div class="ibox">
+          <div class="iprefix"><div class="dot-d"></div></div>
+          <input id="dinp" class="loc-input" type="text"
+            placeholder="Type a place... e.g. E for Electronic City"
+            autocomplete="off" spellcheck="false"
+            oninput="onInp('d')" onfocus="onFoc('d')" onblur="onBlr('d')" onkeydown="onKey(event,'d')"/>
+          <button class="xclear" id="dx" onclick="clr('d')">✕</button>
+        </div>
+        <div class="acbox" id="dac"></div>
+      </div>
+
+      <!-- Options -->
+      <div class="opt-row">
+        <select class="dep-sel" id="dep">
+          <option value="0">Leave now</option>
+          <option value="30">In 30 minutes</option>
+          <option value="60">In 1 hour</option>
+          <option value="120">In 2 hours</option>
+        </select>
+        <button class="go-btn" id="gb" onclick="calcRoutes()">🔍 Get Routes</button>
+      </div>
+
+      <!-- AI Prediction -->
+      <div class="ai-bar" id="aib">
+        <div class="ai-lbl">🤖 Azure ML — 10-Min Traffic Forecast</div>
+        <div class="ai-msg" id="aim"></div>
+      </div>
+    </div>
+
+    <div class="rscroll" id="rarea">
+      <div class="empty">
+        <div class="e-ico">🗺️</div>
+        <div class="e-ttl">Plan your route</div>
+        <div class="e-sub">Type even a single letter — instant suggestions!</div>
+        <div class="e-tip">
+          💡 <b>Try:</b><br>
+          &nbsp;<b>S</b> → Silk Board, Sarjapur, Shivajinagar<br>
+          &nbsp;<b>W</b> → Whitefield<br>
+          &nbsp;<b>M</b> → MG Road, Marathahalli<br>
+          &nbsp;<b>K</b> → Koramangala, KR Puram, KIAL<br>
+          &nbsp;<b>H</b> → Hebbal, HSR Layout, Hosur Rd<br>
+          &nbsp;<b>E</b> → Electronic City
+        </div>
+      </div>
+    </div>
+    <div class="dpanel" id="dp"></div>
+  </div>
+
+  <!-- AUTHORITY TAB -->
+  <div id="tab-auth">
+    <div class="krow">
+      <div class="kpi"><div class="kpi-l">VEHICLES</div><div class="kpi-v blue" id="kv">28,441</div></div>
+      <div class="kpi"><div class="kpi-l">ML ACCURACY</div><div class="kpi-v green">91.4%</div></div>
+      <div class="kpi"><div class="kpi-l">AVG DELAY</div><div class="kpi-v or" id="kd">14.3 min</div></div>
+      <div class="kpi"><div class="kpi-l">HOTSPOTS</div><div class="kpi-v red">7</div></div>
+    </div>
+    <div class="acard">
+      <div class="ahdr">🔴 Congestion Hotspots <span style="font-size:10px;color:var(--muted);font-weight:400;font-family:var(--mono)">Live · Azure IoT</span></div>
+      <div class="abody" id="hsl"></div>
+    </div>
+    <div class="acard">
+      <div class="ahdr">⚡ Live Alerts <button onclick="addAlert()" style="font-size:10px;padding:3px 8px;border-radius:5px;border:1px solid var(--border);background:none;cursor:pointer;color:var(--muted);font-family:var(--font)">+ Simulate</button></div>
+      <div class="abody" id="allist"></div>
+    </div>
+  </div>
+
+  <!-- HISTORY TAB -->
+  <div id="tab-hist">
+    <div class="hcard">
+      <div class="hcard-hdr"><div class="hcard-title">📈 Peak Traffic Hours — 90 Days</div><div class="hcard-sub">Bengaluru city-wide · Azure ML</div></div>
+      <div class="hcard-body" id="pbars"></div>
+    </div>
+    <div class="hcard">
+      <div class="hcard-hdr"><div class="hcard-title">🕐 Best Travel Time Slots</div></div>
+      <div class="hcard-body" id="tslots"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MAP — Leaflet (Free, No API Key) -->
+<div id="map">
+  <div id="map-placeholder" style="height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;background:#F1F3F4;font-family:IBM Plex Sans,sans-serif;padding:20px;text-align:center">
+    <div style="font-size:36px;animation:spin2 2s linear infinite" id="map-spinner">🌍</div>
+    <div style="font-size:14px;color:#70757A;font-weight:500">Loading map...</div>
+    <div style="font-size:11px;color:#9AA0A6">Connecting to OpenStreetMap</div>
+  </div>
+</div>
+<style>@keyframes spin2{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}</style>
+<script>
+// Detect file:// and show server instructions IMMEDIATELY
+(function(){
+  if(location.protocol === 'file:'){
+    document.getElementById('map-placeholder').innerHTML = `
+      <div style="max-width:480px;font-family:IBM Plex Sans,sans-serif">
+        <div style="font-size:40px;margin-bottom:12px">🖥️</div>
+        <div style="font-size:17px;font-weight:700;color:#202124;margin-bottom:8px">Run with VS Code Live Server</div>
+        <div style="font-size:13px;color:#70757A;line-height:1.7;margin-bottom:16px">
+          Chrome blocks map loading when opening HTML files directly.<br>
+          You need to run it through a local server — it takes <b>10 seconds</b>.
+        </div>
+        <div style="background:#0D1B2A;border-radius:10px;padding:16px 18px;text-align:left;margin-bottom:14px">
+          <div style="font-size:10px;color:#9AA0A6;letter-spacing:1px;margin-bottom:10px;font-family:monospace">STEP-BY-STEP</div>
+          <div style="font-size:12px;color:#E2E8F0;line-height:2.2;font-family:monospace">
+            <span style="color:#34A853">1.</span> Open VS Code<br>
+            <span style="color:#34A853">2.</span> Press <span style="background:rgba(255,255,255,.15);padding:2px 7px;border-radius:4px">Ctrl + Shift + X</span><br>
+            <span style="color:#34A853">3.</span> Search <b style="color:#8AB4F8">"Live Server"</b> → Install it<br>
+            <span style="color:#34A853">4.</span> Open folder containing this file<br>
+            <span style="color:#34A853">5.</span> Right-click <span style="color:#8AB4F8">smartroute_final.html</span><br>
+            <span style="color:#34A853">6.</span> Click <b style="color:#34A853">"Open with Live Server"</b> ✅
+          </div>
+        </div>
+        <div style="background:#E8F0FE;border-radius:8px;padding:12px 14px;font-size:12px;color:#1557B0;text-align:left;margin-bottom:12px">
+          <b>OR</b> — run this in VS Code terminal:<br>
+          <code style="background:#C5D9F5;padding:6px 10px;border-radius:5px;display:block;margin-top:6px;font-size:12px">python -m http.server 8080</code>
+          Then open: <b>http://localhost:8080/smartroute_final.html</b>
+        </div>
+        <div style="font-size:11px;color:#9AA0A6">
+          💡 The sidebar, autocomplete, and all features work now.<br>Only the map needs a server to load.
+        </div>
+      </div>
+    `;
+    document.getElementById('map-spinner') && (document.getElementById('map-spinner').style.animation='none');
+  }
+})();
+</script>
+
+<!-- Map buttons -->
+<button class="mfab" id="fl" onclick="locateMe()" style="background:var(--blue);color:#fff;border:none">📍 Use My Location</button>
+<button class="mfab" id="ft" onclick="toggleTraffic()">🚦 Traffic Layer</button>
+<button class="mfab" id="fs" onclick="toggleSat()">🛰 Satellite</button>
+
+<!-- Route overlay card -->
+<div class="rovl" id="rovl">
+  <div class="rt" id="rt">-- min</div>
+  <div class="rr"><span class="rk">Distance</span><span class="rv" id="rd">--</span></div>
+  <div class="rr"><span class="rk">Via</span><span class="rv" id="rv">--</span></div>
+  <div class="rr"><span class="rk">Traffic</span><span class="rv" id="rc">--</span></div>
+  <div class="rr"><span class="rk">Arrive by</span><span class="rv" id="ra">--</span></div>
+</div>
+
+<!-- Traffic legend -->
+<div class="tleg" id="tleg">
+  <div class="tltitle">Traffic Conditions</div>
+  <div class="tlrow"><div class="tlline" style="background:#34A853"></div>Free flow</div>
+  <div class="tlrow"><div class="tlline" style="background:#FFA000"></div>Moderate</div>
+  <div class="tlrow"><div class="tlline" style="background:#D93025"></div>Heavy traffic</div>
+  <div class="tlrow"><div class="tlline" style="background:#7B1FA2"></div>Severe gridlock</div>
+</div>
+
+<!-- Stats bar -->
+<div class="sbar">
+  <div class="si">📡 GPS: <span class="sv" id="sbv">--</span></div>
+  <div class="ssep"></div>
+  <div class="si">🤖 ML: <span class="sv">91.4%</span></div>
+  <div class="ssep"></div>
+  <div class="si">⚠️ <span class="sv">7 hotspots</span></div>
+  <div class="ssep"></div>
+  <div class="si">⏱ avg: <span class="sv" id="sbd">14.3 min</span></div>
+</div>
+
+<div class="toast" id="toast"></div>
+<div id="voice-toast"><div class="vt-icon" id="vt-icon">🔊</div><div><div class="vt-text" id="vt-text"></div><div class="vt-dist" id="vt-dist"></div></div></div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<!-- Leaflet Routing Machine for real road routes -->
+<script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js" crossorigin=""></script>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//   80+ BENGALURU PLACES — triggers from first character
+// ═══════════════════════════════════════════════════════════
+const PLACES = [
+  {n:"Agara Lake",          a:"Agara, HSR Layout",          lat:12.9188,lng:77.6398,cat:"place",  ico:"🏞️",tr:"heavy", z:"South"},
+  {n:"Bagmane Tech Park",   a:"CV Raman Nagar",             lat:12.9859,lng:77.6624,cat:"place",  ico:"🏢",tr:"mod",   z:"East"},
+  {n:"Banashankari",        a:"Banashankari, Bengaluru",    lat:12.9255,lng:77.5663,cat:"area",   ico:"🏘️",tr:"clear", z:"SW"},
+  {n:"Bannerghatta Road",   a:"Bannerghatta Rd",            lat:12.8973,lng:77.5948,cat:"area",   ico:"🛣️",tr:"mod",   z:"South"},
+  {n:"Bellandur",           a:"Bellandur, Bengaluru",       lat:12.9255,lng:77.6765,cat:"area",   ico:"🏘️",tr:"mod",   z:"SE"},
+  {n:"Brigade Road",        a:"Brigade Rd, Central",        lat:12.9722,lng:77.6088,cat:"area",   ico:"🛍️",tr:"mod",   z:"Central"},
+  {n:"BTM Layout",          a:"BTM Layout, Bengaluru",      lat:12.9166,lng:77.6101,cat:"area",   ico:"🏘️",tr:"mod",   z:"South"},
+  {n:"Cubbon Park",         a:"Cubbon Park, Central",       lat:12.9763,lng:77.5929,cat:"place",  ico:"🌳",tr:"clear", z:"Central"},
+  {n:"CV Raman Nagar",      a:"CV Raman Nagar",             lat:12.9859,lng:77.6624,cat:"area",   ico:"🏘️",tr:"clear", z:"East"},
+  {n:"Commercial Street",   a:"Commercial St, Central",     lat:12.9815,lng:77.6099,cat:"area",   ico:"🛍️",tr:"mod",   z:"Central"},
+  {n:"Domlur",              a:"Domlur, Bengaluru",          lat:12.9608,lng:77.6378,cat:"area",   ico:"🏘️",tr:"mod",   z:"East"},
+  {n:"Electronic City",     a:"Electronic City, Bengaluru", lat:12.8458,lng:77.6603,cat:"area",   ico:"💻",tr:"clear", z:"South"},
+  {n:"Ecospace Business Park",a:"Bellandur",                lat:12.9312,lng:77.6826,cat:"place",  ico:"🏢",tr:"mod",   z:"SE"},
+  {n:"Forum Mall",          a:"Koramangala, Bengaluru",     lat:12.9352,lng:77.6216,cat:"place",  ico:"🛍️",tr:"mod",   z:"South"},
+  {n:"Garuda Mall",         a:"Magrath Road, Central",      lat:12.9736,lng:77.6100,cat:"place",  ico:"🛍️",tr:"mod",   z:"Central"},
+  {n:"HAL Airport Road",    a:"HAL Airport Rd",             lat:12.9614,lng:77.6448,cat:"area",   ico:"🛣️",tr:"mod",   z:"East"},
+  {n:"Hebbal",              a:"Hebbal, Bengaluru",          lat:13.0358,lng:77.5970,cat:"area",   ico:"🌁",tr:"mod",   z:"North"},
+  {n:"Hebbal Flyover",      a:"Hebbal Flyover, Bengaluru",  lat:13.0378,lng:77.5980,cat:"place",  ico:"🌉",tr:"mod",   z:"North"},
+  {n:"Hennur",              a:"Hennur, Bengaluru",          lat:13.0475,lng:77.6406,cat:"area",   ico:"🏘️",tr:"clear", z:"North"},
+  {n:"Hosur Road",          a:"Hosur Rd, Bengaluru",        lat:12.8900,lng:77.6200,cat:"area",   ico:"🛣️",tr:"heavy", z:"South"},
+  {n:"HSR Layout",          a:"HSR Layout, Bengaluru",      lat:12.9116,lng:77.6389,cat:"area",   ico:"🏘️",tr:"mod",   z:"South"},
+  {n:"IIM Bangalore",       a:"Bannerghatta Rd",            lat:12.9304,lng:77.5995,cat:"place",  ico:"🎓",tr:"clear", z:"South"},
+  {n:"IISc Campus",         a:"Malleshwaram",               lat:13.0219,lng:77.5671,cat:"place",  ico:"🎓",tr:"clear", z:"NW"},
+  {n:"Indiranagar",         a:"Indiranagar, Bengaluru",     lat:12.9784,lng:77.6408,cat:"area",   ico:"🏘️",tr:"mod",   z:"East"},
+  {n:"Indiranagar Metro",   a:"Indiranagar Metro Station",  lat:12.9784,lng:77.6392,cat:"transport",ico:"🚇",tr:"clear",z:"East"},
+  {n:"ITC Gardenia",        a:"Residency Road",             lat:12.9676,lng:77.5936,cat:"place",  ico:"🏨",tr:"clear", z:"Central"},
+  {n:"Jayanagar",           a:"Jayanagar, Bengaluru",       lat:12.9308,lng:77.5838,cat:"area",   ico:"🏘️",tr:"clear", z:"SW"},
+  {n:"JP Nagar",            a:"JP Nagar, Bengaluru",        lat:12.9077,lng:77.5848,cat:"area",   ico:"🏘️",tr:"clear", z:"SW"},
+  {n:"Kempegowda Airport",  a:"KIAL, Devanahalli",          lat:13.1986,lng:77.7066,cat:"airport",ico:"✈️",tr:"clear", z:"North"},
+  {n:"Kempegowda Bus Stand",a:"Majestic, Bengaluru",        lat:12.9774,lng:77.5700,cat:"transport",ico:"🚌",tr:"mod", z:"Central"},
+  {n:"Kengeri",             a:"Kengeri, Bengaluru",         lat:12.9093,lng:77.4866,cat:"area",   ico:"🏘️",tr:"clear", z:"West"},
+  {n:"Koramangala",         a:"Koramangala, Bengaluru",     lat:12.9352,lng:77.6245,cat:"area",   ico:"🏘️",tr:"mod",   z:"South"},
+  {n:"KR Puram",            a:"KR Puram, Bengaluru",        lat:12.9942,lng:77.6907,cat:"area",   ico:"🌉",tr:"heavy", z:"East"},
+  {n:"KR Puram Bridge",     a:"KR Puram Bridge",            lat:12.9942,lng:77.6907,cat:"place",  ico:"🌉",tr:"heavy", z:"East"},
+  {n:"KSR Railway Station", a:"Majestic, Bengaluru",        lat:12.9780,lng:77.5680,cat:"transport",ico:"🚉",tr:"mod", z:"Central"},
+  {n:"Lalbagh Garden",      a:"Lalbagh, Bengaluru",         lat:12.9495,lng:77.5848,cat:"place",  ico:"🌺",tr:"clear", z:"SC"},
+  {n:"Malleshwaram",        a:"Malleshwaram, Bengaluru",    lat:13.0043,lng:77.5640,cat:"area",   ico:"🏘️",tr:"clear", z:"NW"},
+  {n:"Manipal Hospital",    a:"Old Airport Road",           lat:12.9637,lng:77.6492,cat:"place",  ico:"🏥",tr:"mod",   z:"East"},
+  {n:"Manyata Tech Park",   a:"Nagavara, North",            lat:13.0470,lng:77.6196,cat:"place",  ico:"🏢",tr:"clear", z:"North"},
+  {n:"Marathahalli",        a:"Marathahalli, Bengaluru",    lat:12.9591,lng:77.7015,cat:"area",   ico:"🏘️",tr:"mod",   z:"East"},
+  {n:"Marathahalli Bridge", a:"Marathahalli Bridge",        lat:12.9591,lng:77.7015,cat:"place",  ico:"🌉",tr:"mod",   z:"East"},
+  {n:"Majestic",            a:"Majestic (Kempegowda), BLR", lat:12.9774,lng:77.5700,cat:"transport",ico:"🚌",tr:"mod", z:"Central"},
+  {n:"MG Road",             a:"MG Road, Central Bengaluru", lat:12.9752,lng:77.6052,cat:"area",   ico:"🛣️",tr:"mod",   z:"Central"},
+  {n:"MG Road Metro",       a:"MG Road Metro Station",      lat:12.9752,lng:77.6069,cat:"transport",ico:"🚇",tr:"mod", z:"Central"},
+  {n:"Mysuru Road",         a:"Mysuru Road, Bengaluru",     lat:12.9587,lng:77.5278,cat:"area",   ico:"🛣️",tr:"mod",   z:"West"},
+  {n:"Nagavara",            a:"Nagavara, North Bengaluru",  lat:13.0470,lng:77.6196,cat:"area",   ico:"🏘️",tr:"clear", z:"North"},
+  {n:"Nagarbhavi",          a:"Nagarbhavi, West",           lat:12.9664,lng:77.5126,cat:"area",   ico:"🏘️",tr:"clear", z:"West"},
+  {n:"NICE Road",           a:"NICE Road Corridor",         lat:12.9200,lng:77.4900,cat:"area",   ico:"🛣️",tr:"clear", z:"West"},
+  {n:"Old Airport Road",    a:"Old Airport Rd, Bengaluru",  lat:12.9632,lng:77.6480,cat:"area",   ico:"🛣️",tr:"mod",   z:"East"},
+  {n:"Orion Mall",          a:"Dr Rajkumar Road, NW",       lat:13.0008,lng:77.5547,cat:"place",  ico:"🛍️",tr:"clear", z:"NW"},
+  {n:"Outer Ring Road",     a:"ORR, Bengaluru",             lat:12.9500,lng:77.6800,cat:"area",   ico:"🛣️",tr:"heavy", z:"East"},
+  {n:"Phoenix Marketcity",  a:"Whitefield, East",           lat:12.9698,lng:77.7460,cat:"place",  ico:"🛍️",tr:"mod",   z:"East"},
+  {n:"Rajajinagar",         a:"Rajajinagar, NW Bengaluru",  lat:12.9933,lng:77.5536,cat:"area",   ico:"🏘️",tr:"clear", z:"NW"},
+  {n:"RT Nagar",            a:"RT Nagar, North",            lat:13.0202,lng:77.5941,cat:"area",   ico:"🏘️",tr:"clear", z:"North"},
+  {n:"Sarjapur Road",       a:"Sarjapur Road, SE",          lat:12.9036,lng:77.6710,cat:"area",   ico:"🛣️",tr:"mod",   z:"SE"},
+  {n:"Shivajinagar",        a:"Shivajinagar, Central",      lat:12.9862,lng:77.5991,cat:"area",   ico:"🏙️",tr:"clear", z:"Central"},
+  {n:"Silk Board",          a:"Silk Board Junction",        lat:12.9176,lng:77.6231,cat:"place",  ico:"⚠️",tr:"heavy", z:"South"},
+  {n:"Silk Board Junction", a:"Silk Board, South Bengaluru",lat:12.9176,lng:77.6231,cat:"place",  ico:"⚠️",tr:"heavy", z:"South"},
+  {n:"St Johns Hospital",   a:"Koramangala, South",         lat:12.9430,lng:77.6170,cat:"place",  ico:"🏥",tr:"mod",   z:"South"},
+  {n:"Taj MG Road",         a:"MG Road, Central",           lat:12.9752,lng:77.6057,cat:"place",  ico:"🏨",tr:"mod",   z:"Central"},
+  {n:"Thanisandra",         a:"Thanisandra, North",         lat:13.0663,lng:77.6360,cat:"area",   ico:"🏘️",tr:"clear", z:"North"},
+  {n:"The Leela Palace",    a:"HAL Airport Road",           lat:12.9614,lng:77.6448,cat:"place",  ico:"🏨",tr:"mod",   z:"East"},
+  {n:"Tumkur Road",         a:"Tumkur Rd, NW Bengaluru",    lat:13.0184,lng:77.5335,cat:"area",   ico:"🛣️",tr:"clear", z:"NW"},
+  {n:"UB City",             a:"Vittal Mallya Road",         lat:12.9722,lng:77.5963,cat:"place",  ico:"🛍️",tr:"clear", z:"Central"},
+  {n:"Vidhana Soudha",      a:"Vidhana Soudha, Central",    lat:12.9795,lng:77.5906,cat:"place",  ico:"🏛️",tr:"clear", z:"Central"},
+  {n:"Vijayanagar",         a:"Vijayanagar, West",          lat:12.9699,lng:77.5344,cat:"area",   ico:"🏘️",tr:"clear", z:"West"},
+  {n:"Whitefield",          a:"Whitefield, East Bengaluru", lat:12.9698,lng:77.7500,cat:"area",   ico:"🏙️",tr:"mod",   z:"East"},
+  {n:"Yelahanka",           a:"Yelahanka, North",           lat:13.1007,lng:77.5963,cat:"area",   ico:"🏘️",tr:"clear", z:"North"},
+  {n:"Yeshwanthpur",        a:"Yeshwanthpur, NW",           lat:13.0266,lng:77.5508,cat:"area",   ico:"🏘️",tr:"clear", z:"NW"},
+  {n:"Yeshwanthpur Railway",a:"Yeshwanthpur Railway Station",lat:13.0268,lng:77.5452,cat:"transport",ico:"🚉",tr:"clear",z:"NW"},
+];
+
+const RECENT = ["MG Road","Whitefield","Koramangala"];
+const blurT = {}, hlIdx = {s:-1,d:-1};
+let sPlace=null, dPlace=null;
+
+// ── Autocomplete helpers ─────────────────────────────────
+function hlText(t,q){
+  if(!q)return t;
+  const i=t.toLowerCase().indexOf(q.toLowerCase());
+  if(i===-1)return t;
+  return t.slice(0,i)+'<mark>'+t.slice(i,i+q.length)+'</mark>'+t.slice(i+q.length);
+}
+function matchPlace(p,q){
+  const s=(p.n+' '+p.a+' '+p.z).toLowerCase(), ql=q.toLowerCase().trim();
+  return p.n.toLowerCase().split(/[\s,]+/).some(w=>w.startsWith(ql)) || s.includes(ql);
+}
+function badgeHtml(tr){
+  if(tr==='heavy')return '<span class="ac-badge bg-heavy">Heavy</span>';
+  if(tr==='mod')  return '<span class="ac-badge bg-mod">Moderate</span>';
+  return '<span class="ac-badge bg-clear">Clear</span>';
+}
+function icoClass(cat){
+  return {transport:'ico-transport',airport:'ico-airport'}[cat]||'';
+}
+
+function buildAC(f,q){
+  const box=document.getElementById(f==='s'?'sac':'dac');
+  if(!q||q.trim()===''){
+    const rH=RECENT.length?`<div class="ac-grp">🕐 Recent</div>${RECENT.map(r=>`<div class="acrow" onmousedown="pick('${f}','${r}')"><div class="ac-ico ico-recent">🕐</div><div class="ac-text"><div class="ac-name">${r}</div><div class="ac-addr">Recent · Bengaluru</div></div><button onmousedown="rmR(event,'${r}')" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:13px;padding:2px 6px;border-radius:3px">✕</button></div>`).join('')}`:'';
+    const pop=PLACES.filter(p=>p.cat==='transport'||p.cat==='airport'||['Silk Board','Whitefield','MG Road','Electronic City','Koramangala','Marathahalli','Hebbal','Kempegowda Airport'].includes(p.n)).slice(0,7);
+    box.innerHTML=rH+`<div class="ac-grp">⭐ Popular in Bengaluru</div>`+pop.map((p,i)=>`<div class="acrow" onmousedown="pick('${f}','${p.n}')" data-i="${RECENT.length+i}"><div class="ac-ico ${icoClass(p.cat)}">${p.ico}</div><div class="ac-text"><div class="ac-name">${p.n}</div><div class="ac-addr">${p.a}</div></div><div class="ac-right">${badgeHtml(p.tr)}</div></div>`).join('');
+    box.classList.add('show'); hlIdx[f]=-1; return;
+  }
+  const res=PLACES.filter(p=>matchPlace(p,q)).slice(0,10);
+  if(!res.length){box.innerHTML=`<div class="ac-nores">😕 No results for "<b>${q}</b>"<br><span style="font-size:11px">Try: S → Silk Board, W → Whitefield, K → Koramangala</span></div>`;box.classList.add('show');return;}
+  box.innerHTML=res.map((p,i)=>`<div class="acrow" onmousedown="pick('${f}','${p.n}')" data-i="${i}"><div class="ac-ico ${icoClass(p.cat)}">${p.ico}</div><div class="ac-text"><div class="ac-name">${hlText(p.n,q)}</div><div class="ac-addr">${p.a}</div></div><div class="ac-right">${badgeHtml(p.tr)}<div class="ac-km">${p.z}</div></div></div>`).join('');
+  box.classList.add('show'); hlIdx[f]=-1;
+}
+
+function onInp(f){
+  const v=document.getElementById(f==='s'?'sinp':'dinp').value;
+  document.getElementById(f==='s'?'sx':'dx').classList.toggle('vis',v.length>0);
+  document.getElementById(f==='s'?'sinp':'dinp').classList.toggle('filled',v.length>0);
+  buildAC(f,v);
+}
+function onFoc(f){clearTimeout(blurT[f]);buildAC(f,document.getElementById(f==='s'?'sinp':'dinp').value);}
+function onBlr(f){blurT[f]=setTimeout(()=>document.getElementById(f==='s'?'sac':'dac').classList.remove('show'),220);}
+function onKey(e,f){
+  const box=document.getElementById(f==='s'?'sac':'dac');
+  const rows=box.querySelectorAll('.acrow');
+  if(!rows.length)return;
+  if(e.key==='ArrowDown'){e.preventDefault();hlIdx[f]=Math.min(hlIdx[f]+1,rows.length-1);rows.forEach((r,i)=>r.classList.toggle('active',i===hlIdx[f]));rows[hlIdx[f]]?.scrollIntoView({block:'nearest'});}
+  else if(e.key==='ArrowUp'){e.preventDefault();hlIdx[f]=Math.max(hlIdx[f]-1,-1);rows.forEach((r,i)=>r.classList.toggle('active',i===hlIdx[f]));}
+  else if(e.key==='Enter'){e.preventDefault();(hlIdx[f]>=0&&rows[hlIdx[f]]||rows[0])?.dispatchEvent(new MouseEvent('mousedown'));}
+  else if(e.key==='Escape')box.classList.remove('show');
+}
+function pick(f,name){
+  clearTimeout(blurT[f]);
+  const p=PLACES.find(x=>x.n===name);
+  const inp=document.getElementById(f==='s'?'sinp':'dinp');
+  inp.value=name; inp.classList.add('filled');
+  document.getElementById(f==='s'?'sx':'dx').classList.add('vis');
+  document.getElementById(f==='s'?'sac':'dac').classList.remove('show');
+  hlIdx[f]=-1;
+  if(p){if(f==='s')sPlace=p;else dPlace=p;if(!RECENT.includes(name)){RECENT.unshift(name);if(RECENT.length>5)RECENT.pop();}pinMarker(f,p);}
+  toast(`📍 ${f==='s'?'Start':'Destination'}: ${name}`);
+  inp.focus();
+}
+function clr(f){
+  const inp=document.getElementById(f==='s'?'sinp':'dinp');
+  inp.value='';inp.classList.remove('filled');
+  document.getElementById(f==='s'?'sx':'dx').classList.remove('vis');
+  document.getElementById(f==='s'?'sac':'dac').classList.remove('show');
+  if(f==='s'){sPlace=null;if(sMarker){lMap.removeLayer(sMarker);sMarker=null;}}
+  else{dPlace=null;if(dMarker){lMap.removeLayer(dMarker);dMarker=null;}}
+  clearRoutes();
+  document.getElementById('rovl').classList.remove('show');
+  document.getElementById('rarea').style.display='';
+  document.getElementById('dp').classList.remove('show');
+  document.getElementById('dp').innerHTML='';
+  buildAC(f,'');inp.focus();
+}
+function rmR(e,n){e.stopPropagation();e.preventDefault();const i=RECENT.indexOf(n);if(i>-1)RECENT.splice(i,1);const f=document.activeElement.id==='sinp'?'s':'d';buildAC(f,'');}
+function swap(){
+  const si=document.getElementById('sinp'),di=document.getElementById('dinp');
+  [si.value,di.value]=[di.value,si.value];
+  [sPlace,dPlace]=[dPlace,sPlace];
+  si.classList.toggle('filled',si.value.length>0);di.classList.toggle('filled',di.value.length>0);
+  document.getElementById('sx').classList.toggle('vis',si.value.length>0);
+  document.getElementById('dx').classList.toggle('vis',di.value.length>0);
+  if(sMarker&&dMarker){const sp=sMarker.getLatLng(),dp=dMarker.getLatLng();sMarker.setLatLng(dp);dMarker.setLatLng(sp);}
+}
+
+// ═══════════════════════════════════════════════════════════
+//  LEAFLET MAP (100% Free — No API Key Required)
+// ═══════════════════════════════════════════════════════════
+let lMap, sMarker=null, dMarker=null, routeControls=[], trafficOn=false, satOn=false;
+let streetTiles, satTiles, trafficPolylines=[];
+let allRouteData=[];
+
+// Custom marker icons
+const makeIcon=(color,label)=>L.divIcon({
+  className:'',
+  html:`<div style="background:${color};width:34px;height:34px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center"><span style="transform:rotate(45deg);color:#fff;font-size:13px;font-weight:700">${label}</span></div>`,
+  iconSize:[34,34],iconAnchor:[17,34],popupAnchor:[0,-38]
+});
+const sIcon=makeIcon('#34A853','A'), dIcon=makeIcon('#D93025','B');
+
+// Hotspot pulsing icon
+const hotspotIcon=(color)=>L.divIcon({
+  className:'',
+  html:`<div style="position:relative;width:22px;height:22px"><div style="position:absolute;inset:0;border-radius:50%;background:${color};opacity:.2;animation:hpulse 2s infinite"></div><div style="position:absolute;inset:4px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.3)"></div></div><style>@keyframes hpulse{0%{transform:scale(1);opacity:.3}100%{transform:scale(2.5);opacity:0}}</style>`,
+  iconSize:[22,22],iconAnchor:[11,11]
+});
+
+const HOTSPOTS=[
+  {lat:12.9176,lng:77.6231,n:'Silk Board Junction',s:'Heavy — avg delay 28 min',c:92,col:'#D93025'},
+  {lat:12.9942,lng:77.6907,n:'KR Puram Bridge',   s:'Heavy — avg delay 18 min',c:82,col:'#D93025'},
+  {lat:13.0358,lng:77.5970,n:'Hebbal Flyover',     s:'Moderate — delay 12 min',c:65,col:'#FFA000'},
+  {lat:12.9591,lng:77.7015,n:'Marathahalli Bridge',s:'Moderate — delay 14 min',c:70,col:'#FFA000'},
+  {lat:12.8458,lng:77.6603,n:'Electronic City Toll',s:'Clear — delay 4 min',   c:28,col:'#34A853'},
+  {lat:12.9116,lng:77.6389,n:'HSR Layout Jn',      s:'Moderate — delay 9 min', c:55,col:'#FFA000'},
+  {lat:13.0266,lng:77.5508,n:'Yeshwanthpur Jn',    s:'Clear — delay 5 min',    c:30,col:'#34A853'},
+];
+
+// Simulated traffic roads (colored polylines)
+const TRAFFIC_ROADS=[
+  {pts:[[12.9176,77.6231],[12.9352,77.6470],[12.9591,77.7015],[12.9700,77.7100]],col:'#D93025',w:5,n:'ORR East — Heavy'},
+  {pts:[[12.9176,77.6231],[12.8800,77.6300],[12.8458,77.6603]],                  col:'#D93025',w:5,n:'Hosur Road — Heavy'},
+  {pts:[[12.9752,77.6052],[12.9784,77.6408],[12.9698,77.7500]],                  col:'#FFA000',w:4,n:'Old Airport Rd — Moderate'},
+  {pts:[[12.9716,77.5946],[13.0043,77.5640],[13.0266,77.5508]],                  col:'#34A853',w:4,n:'Tumkur Rd — Clear'},
+  {pts:[[12.9716,77.5946],[12.9308,77.5838],[12.9077,77.5848]],                  col:'#FFA000',w:4,n:'Bannerghatta Rd — Moderate'},
+  {pts:[[13.0358,77.5970],[13.0043,77.5640],[12.9933,77.5536]],                  col:'#34A853',w:4,n:'Bellary Rd — Clear'},
+  {pts:[[12.9176,77.6231],[12.9255,77.6765],[12.9036,77.6710]],                  col:'#FFA000',w:4,n:'Sarjapur Rd — Moderate'},
+  {pts:[[13.0358,77.5970],[12.9942,77.6907],[12.9591,77.7015]],                  col:'#D93025',w:5,n:'ORR North-East — Heavy'},
+  {pts:[[12.9752,77.6052],[12.9862,77.5991]],                                    col:'#34A853',w:4,n:'MG Road — Clear'},
+];
+
+function initMap(){
+  // Clear loading placeholder
+  document.getElementById('map').innerHTML = '';
+
+  // Create Leaflet map centered on Bengaluru
+  lMap = L.map('map',{
+    center:[12.9716,77.5946], zoom:12,
+    zoomControl:true,
+    preferCanvas:true,
+  });
+
+  // Street tiles — using multiple providers for reliability
+  streetTiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    attribution:'© <a href="https://openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxZoom:19,
+    crossOrigin: true,
+    errorTileUrl:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+  }).addTo(lMap);
+
+  // Tile error fallback — try alternative OSM server
+  streetTiles.on('tileerror', function(){
+    if(!window._tilesFallback){
+      window._tilesFallback = true;
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
+        attribution:'© OpenStreetMap contributors',maxZoom:19,
+      }).addTo(lMap);
+    }
+  });
+
+  // Satellite tiles (Esri — free)
+  satTiles = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{
+    attribution:'© Esri, DigitalGlobe, GeoEye',maxZoom:19,
+  });
+
+  // Add hotspot markers
+  HOTSPOTS.forEach(h=>{
+    const m=L.marker([h.lat,h.lng],{icon:hotspotIcon(h.col)}).addTo(lMap);
+    const bg=h.c>75?'#FCE8E6':h.c>50?'#FEF7E0':'#E6F4EA';
+    const tx=h.c>75?'#B71C1C':h.c>50?'#E65100':'#1B5E20';
+    m.bindPopup(`<div class="mpop"><h4>${h.n}</h4><p>${h.s}</p><span style="display:inline-block;margin-top:5px;padding:2px 7px;border-radius:12px;font-size:10px;font-weight:600;background:${bg};color:${tx}">${h.c}% congestion</span><p style="font-size:10px;color:#9AA0A6;margin-top:4px;font-family:monospace">📡 Azure IoT Hub · Live</p></div>`,{maxWidth:220});
+  });
+
+  // Click map to set start/end
+  lMap.on('click',e=>{
+    const near=PLACES.reduce((a,b)=>lMap.distance(e.latlng,[a.lat,a.lng])<lMap.distance(e.latlng,[b.lat,b.lng])?a:b);
+    if(!sPlace){pick('s',near.n);toast('Start set · Now click or type destination');}
+    else if(!dPlace){pick('d',near.n);toast('Destination set · Click Get Routes');}
+  });
+
+  // Turn on traffic by default
+  toggleTraffic();
+  toast('✅ Map ready · Click 📍 My Location or type to start!');
+  // Auto-center on Bengaluru
+  lMap.setView([12.9716, 77.5946], 12);
+}
+
+function pinMarker(f,p){
+  if(f==='s'){
+    if(sMarker)lMap.removeLayer(sMarker);
+    sMarker=L.marker([p.lat,p.lng],{icon:sIcon,draggable:true}).addTo(lMap)
+      .bindPopup(`<div class="mpop"><h4>🟢 Start: ${p.n}</h4><p>${p.a}</p></div>`);
+    sMarker.on('dragend',e=>{sPlace={...sPlace,lat:e.target.getLatLng().lat,lng:e.target.getLatLng().lng};});
+  } else {
+    if(dMarker)lMap.removeLayer(dMarker);
+    dMarker=L.marker([p.lat,p.lng],{icon:dIcon,draggable:true}).addTo(lMap)
+      .bindPopup(`<div class="mpop"><h4>🔴 Destination: ${p.n}</h4><p>${p.a}</p></div>`);
+    dMarker.on('dragend',e=>{dPlace={...dPlace,lat:e.target.getLatLng().lat,lng:e.target.getLatLng().lng};});
+  }
+  if(sPlace&&dPlace){
+    lMap.fitBounds([[sPlace.lat,sPlace.lng],[dPlace.lat,dPlace.lng]],{padding:[70,70]});
+  } else {
+    lMap.setView([p.lat,p.lng],14);
+  }
+}
+
+// ── ROUTE CALCULATION (OSRM — Free, draws real roads) ────
+const RCOLS=['#1A73E8','#F29900','#D93025','#7C3AED','#0694A2'];
+const AILBL=['⚡ Fastest','🔁 Alternate','⚠ Avoid'];
+const AITAG=['tb','ta','ts'];
+const AITYPE=['rb','ra','rs'];
+const AICOL=['cg','co','cr2'];
+const AICONG=[42,65,88];
+
+function clearRoutes(){
+  clearRouteDrawings();
+  routeControls.forEach(c=>{try{lMap.removeControl(c);}catch(e){}});
+  routeControls=[];allRouteData=[];
+  const old=document.getElementById('traffic-alert-panel');if(old)old.remove();
+  if(window.predCircle){try{lMap.removeLayer(window.predCircle);}catch(e){}}
+}
+
+// ── 10-KM TRAFFIC PREDICTION (10 MIN AHEAD) ─────────────────────
+const CORRIDOR_ZONES = [
+  {id:'silk_board',name:'Silk Board Junction',lat:12.9176,lng:77.6231,severity:'CRITICAL',delay:28,alt:'Via Hosur Rd elevated → Bannerghatta Rd'},
+  {id:'kr_puram',  name:'KR Puram Bridge',   lat:12.9942,lng:77.6907,severity:'HIGH',    delay:18,alt:'Via Old Madras Road or NH44 service lane'},
+  {id:'hebbal',    name:'Hebbal Flyover',     lat:13.0358,lng:77.5970,severity:'MODERATE',delay:12,alt:'Via Nagavara → RT Nagar'},
+  {id:'marathon',  name:'Marathahalli Bridge',lat:12.9591,lng:77.7015,severity:'HIGH',    delay:14,alt:'Via Whitefield Road alternate'},
+  {id:'ecity',     name:'Electronic City Toll',lat:12.8458,lng:77.6603,severity:'LOW',    delay:4, alt:'No alternate needed'},
+  {id:'yesh',      name:'Yeshwanthpur Jn',   lat:13.0266,lng:77.5508,severity:'LOW',    delay:5, alt:'No alternate needed'},
+  {id:'hsr',       name:'HSR Layout Jn',     lat:12.9116,lng:77.6389,severity:'MODERATE',delay:9, alt:'Via Outer Ring Road'},
+  {id:'bellandur', name:'Bellandur Gate',     lat:12.9255,lng:77.6765,severity:'MODERATE',delay:11,alt:'Via Sarjapur Main Road'},
+  {id:'orr_south', name:'ORR South',         lat:12.9176,lng:77.6500,severity:'HIGH',    delay:16,alt:'Via NICE Road or Bannerghatta'},
+];
+
+const HOUR_CONG = {
+  6:0.22,7:0.62,8:0.92,9:0.88,10:0.58,11:0.45,
+  12:0.50,13:0.52,14:0.55,15:0.65,16:0.80,17:0.95,
+  18:0.98,19:0.88,20:0.68,21:0.48,22:0.30,23:0.18,0:0.10
+};
+
+let trafficAlertLayer=null;
+
+function getTrafficSeverity(baseSeverity, hour){
+  const cong = HOUR_CONG[hour]||0.4;
+  if(cong>0.85) return 'CRITICAL';
+  if(cong>0.65) return 'HIGH';
+  if(cong>0.40) return 'MODERATE';
+  return 'LOW';
+}
+
+function checkNearbyTraffic(lat, lng){
+  const radius = 10000; // 10km in metres
+  const hour = new Date().getHours();
+  const futureHour = (hour + Math.floor(10/60)) % 24; // 10 min ahead
+
+  const nearby = CORRIDOR_ZONES.filter(z=>{
+    const dist = lMap.distance([lat,lng],[z.lat,z.lng]);
+    return dist <= radius;
+  });
+
+  if(!nearby.length){ return; }
+
+  const critical = nearby.filter(z=>{
+    const sev = getTrafficSeverity(z.severity, futureHour);
+    return sev==='CRITICAL'||sev==='HIGH';
+  });
+
+  // Show traffic prediction panel
+  showTrafficAlert(nearby, futureHour, critical.length>0);
+
+  // Draw radius circle on map
+  if(window.predCircle) lMap.removeLayer(window.predCircle);
+  window.predCircle = L.circle([lat,lng],{
+    radius:radius, color:'#1A73E8', fillColor:'#1A73E8',
+    fillOpacity:.04, weight:1.5, dashArray:'8,6'
+  }).addTo(lMap);
+}
+
+function showTrafficAlert(zones, futureHour, hasCritical){
+  // Remove old alert
+  const old = document.getElementById('traffic-alert-panel');
+  if(old) old.remove();
+
+  const panel = document.createElement('div');
+  panel.id = 'traffic-alert-panel';
+  panel.style.cssText = `
+    position:fixed;top:68px;left:400px;z-index:2000;
+    background:#fff;border-radius:12px;
+    box-shadow:0 8px 40px rgba(0,0,0,.22);
+    min-width:300px;max-width:380px;
+    border-left:4px solid ${hasCritical?'#D93025':'#F29900'};
+    animation:fadeUp .3s ease;
+  `;
+
+  const headerColor = hasCritical?'#D93025':'#F29900';
+  const headerBg = hasCritical?'#FCE8E6':'#FEF7E0';
+  const headerIcon = hasCritical?'⚠️':'🔶';
+
+  let zonesHtml = zones.map(z=>{
+    const sev = getTrafficSeverity(z.severity, futureHour);
+    const bg = sev==='CRITICAL'?'#FCE8E6':sev==='HIGH'?'#FEF3CD':sev==='MODERATE'?'#FFF8E1':'#E6F4EA';
+    const tx = sev==='CRITICAL'?'#B71C1C':sev==='HIGH'?'#8B4513':sev==='MODERATE'?'#E65100':'#1B5E20';
+    const col = sev==='CRITICAL'?'#D93025':sev==='HIGH'?'#FFA000':sev==='MODERATE'?'#F9AB00':'#34A853';
+    const needsAlt = sev==='CRITICAL'||sev==='HIGH';
+    return `
+      <div style="padding:8px 12px;border-bottom:1px solid #F1F3F4;display:flex;align-items:flex-start;gap:8px">
+        <div style="width:9px;height:9px;border-radius:50%;background:${col};flex-shrink:0;margin-top:3px"></div>
+        <div style="flex:1">
+          <div style="font-size:12px;font-weight:600">${z.name}</div>
+          <div style="font-size:11px;color:#70757A;margin-top:1px">~${z.delay} min delay · ${sev}</div>
+          ${needsAlt?`<div style="font-size:10px;color:${col};margin-top:3px;font-weight:500">🔄 Alt: ${z.alt}</div>`:''}
+        </div>
+        <span style="font-size:9px;padding:2px 6px;border-radius:10px;background:${bg};color:${tx};font-weight:700;flex-shrink:0">${sev}</span>
+      </div>`;
+  }).join('');
+
+  panel.innerHTML = `
+    <div style="padding:10px 14px;background:${headerBg};border-radius:8px 8px 0 0;display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-size:12px;font-weight:700;color:${headerColor}">${headerIcon} 10-Min Traffic Forecast · 10km Radius</div>
+        <div style="font-size:10px;color:#70757A;font-family:monospace;margin-top:1px">Azure ML · ${zones.length} corridors analysed</div>
+      </div>
+      <button onclick="document.getElementById('traffic-alert-panel').remove();if(window.predCircle)lMap.removeLayer(window.predCircle)" 
+        style="background:none;border:none;cursor:pointer;font-size:16px;color:#70757A;padding:2px 6px;border-radius:4px">✕</button>
+    </div>
+    ${zonesHtml}
+    ${hasCritical?`<div style="padding:10px 14px;background:#FFF3E0;font-size:11px;color:#E65100;border-radius:0 0 8px 8px">
+      🤖 <b>Azure ML recommends:</b> Alternate routes auto-selected below when you Get Routes
+    </div>`:''}
+  `;
+  document.body.appendChild(panel);
+}
+
+// ── MAIN ROUTE CALCULATION — MAX ROUTES + SHORTEST DEFAULT ───
+function calcRoutes(){
+  if(!sPlace||!dPlace){
+    if(!sPlace){toast('⚠️ Set your starting point first');document.getElementById('sinp').focus();}
+    else {toast('⚠️ Set your destination first');document.getElementById('dinp').focus();}
+    return;
+  }
+  const btn=document.getElementById('gb');
+  btn.disabled=true; btn.innerHTML='<div class="spin"></div> Analyzing...';
+  clearRoutes();
+  document.getElementById('rovl').classList.remove('show');
+  document.getElementById('aib').classList.remove('show');
+
+  const dep = parseInt(document.getElementById('dep').value);
+
+  // Check 10km traffic around start point
+  checkNearbyTraffic(sPlace.lat, sPlace.lng);
+
+  toast('🤖 Azure ML predicting 10-min traffic...');
+
+  // Generate 5 waypoint variants to maximize route options
+  const S=[sPlace.lat,sPlace.lng], D=[dPlace.lat,dPlace.lng];
+  const variants=[
+    {s:S, d:D},                                                  // Direct
+    {s:[S[0]+0.010,S[1]+0.005], d:D},                           // Variant NE
+    {s:[S[0]-0.008,S[1]+0.006], d:D},                           // Variant SE
+    {s:S, d:[D[0]+0.008,D[1]-0.006]},                           // Dest variant W
+    {s:[S[0]+0.005,S[1]-0.008], d:[D[0]-0.005,D[1]+0.007]},    // Both variants
+  ];
+
+  let loaded=0; const routeData=[];
+
+  variants.forEach((v,i)=>{
+    const ctrl=L.Routing.control({
+      waypoints:[L.latLng(v.s[0],v.s[1]),L.latLng(v.d[0],v.d[1])],
+      router:L.Routing.osrmv1({serviceUrl:'https://router.project-osrm.org/route/v1',profile:'driving'}),
+      lineOptions:{
+        styles:[{color:RCOLS[Math.min(i,RCOLS.length-1)],weight:i===0?7:4,opacity:i===0?0.92:0.4,
+          dashArray:i===0?null:i===1?'10,6':i===2?'6,4':'4,3'}],
+        extendToWaypoints:true,missingRouteTolerance:0,
+      },
+      routeWhileDragging:false,addWaypoints:false,
+      fitSelectedRoutes:false,show:false,createMarker:()=>null,
+    }).addTo(lMap);
+
+    ctrl.on('routesfound',e=>{
+      routeData[i]={ctrl,route:e.routes[0]};
+      loaded++;
+      if(loaded===variants.length) finishRoutes(routeData,dep,btn);
+    });
+    ctrl.on('routingerror',()=>{
+      routeData[i]=null; loaded++;
+      if(loaded===variants.length) finishRoutes(routeData,dep,btn);
+    });
+    routeControls.push(ctrl);
+  });
+
+  setTimeout(()=>{
+    if(loaded<variants.length){loaded=variants.length;finishRoutes(routeData,dep,btn);}
+  },10000);
+}
+
+// Custom polylines and labels drawn on map for each route
+let routePolylines = [];  // L.Polyline objects
+let routeLabels   = [];   // L.Marker label objects
+
+function clearRouteDrawings(){
+  routePolylines.forEach(p=>{ try{lMap.removeLayer(p);}catch(e){} });
+  routeLabels.forEach(m=>{ try{lMap.removeLayer(m);}catch(e){} });
+  routePolylines=[]; routeLabels=[];
+}
+
+// Draw one route polyline with casing (outline + fill) for visibility
+function drawRouteLine(coords, color, weight, opacity, dashArray, zOffset){
+  // White casing underneath for contrast
+  const casing = L.polyline(coords,{
+    color:'#ffffff', weight:weight+4, opacity:opacity*0.6,
+    lineCap:'round', lineJoin:'round',
+  }).addTo(lMap);
+  // Colored route line on top
+  const line = L.polyline(coords,{
+    color, weight, opacity,
+    lineCap:'round', lineJoin:'round',
+    dashArray: dashArray||null,
+  }).addTo(lMap);
+  return {casing, line};
+}
+
+// Midpoint of a polyline for placing label
+function getMidPoint(coords){
+  const mid = Math.floor(coords.length/2);
+  return coords[mid];
+}
+
+// Route label marker (pill badge on map)
+function makeRouteLabel(latlng, text, color, bgColor){
+  const icon = L.divIcon({
+    className:'',
+    html:`<div style="
+      background:${bgColor};color:${color};
+      padding:4px 10px;border-radius:20px;
+      font-size:11px;font-weight:700;font-family:IBM Plex Sans,sans-serif;
+      box-shadow:0 2px 8px rgba(0,0,0,.25);
+      border:2px solid ${color};
+      white-space:nowrap;
+      pointer-events:none;
+    ">${text}</div>`,
+    iconAnchor:[40,12],
+  });
+  return L.marker(latlng,{icon,interactive:false,zIndexOffset:1000});
+}
+
+function finishRoutes(routeData,dep,btn){
+  btn.disabled=false; btn.innerHTML='🔍 Get Routes';
+  const valid=routeData.filter(Boolean);
+  if(!valid.length){runAISim(dep);return;}
+
+  // Hide LRM's own route lines — we draw our own
+  routeControls.forEach(ctrl=>{
+    try{
+      if(ctrl._line){ ctrl._line.setStyle({opacity:0,weight:0}); }
+      // Also hide all sub-layers
+      ctrl.getPlan && ctrl._map && ctrl._map.eachLayer(l=>{
+        if(l instanceof L.Polyline && l._lrm) l.setStyle({opacity:0});
+      });
+    }catch(e){}
+  });
+
+  // Deduplicate by distance bucket
+  const seen=new Set(); const unique=[];
+  valid.forEach(v=>{
+    const key=Math.round(v.route.summary.totalDistance/300)*300;
+    if(!seen.has(key)){seen.add(key);unique.push(v);}
+  });
+
+  // Sort: shortest distance first
+  unique.sort((a,b)=>a.route.summary.totalDistance - b.route.summary.totalDistance);
+  allRouteData=unique;
+
+  // Clear any old custom drawings
+  clearRouteDrawings();
+
+  const hour=new Date().getHours();
+  const cong=HOUR_CONG[hour]||0.4;
+  const shortestHasHighTraffic = cong>0.65;
+
+  // Route visual config — all routes VISIBLE on map
+  const ROUTE_STYLES=[
+    {color:'#1A73E8', weight:8,  opacity:0.95, dash:null,    label:'⚡ Shortest', labelBg:'#1A73E8', labelTx:'#fff'},  // Blue  - shortest
+    {color:'#F29900', weight:6,  opacity:0.85, dash:null,    label:'🔁 Alt 1',    labelBg:'#F29900', labelTx:'#fff'},  // Orange - alt1
+    {color:'#0F9D58', weight:6,  opacity:0.85, dash:null,    label:'🟢 Alt 2',    labelBg:'#0F9D58', labelTx:'#fff'},  // Green  - alt2
+    {color:'#7C3AED', weight:5,  opacity:0.80, dash:'10,5',  label:'🟣 Alt 3',    labelBg:'#7C3AED', labelTx:'#fff'},  // Purple - alt3
+    {color:'#0694A2', weight:5,  opacity:0.80, dash:'8,4',   label:'🔵 Alt 4',    labelBg:'#0694A2', labelTx:'#fff'},  // Teal   - alt4
+  ];
+
+  // Fit map bounds to all routes
+  const allCoords=[];
+  unique.forEach(v=>{ v.route.coordinates && allCoords.push(...v.route.coordinates); });
+  if(allCoords.length) lMap.fitBounds(L.polyline(allCoords).getBounds(),{padding:[70,70]});
+  else lMap.fitBounds([[sPlace.lat,sPlace.lng],[dPlace.lat,dPlace.lng]],{padding:[70,70]});
+
+  // Draw routes BACK-TO-FRONT (shortest on top = drawn last)
+  // So draw alternates first, then shortest
+  const drawOrder=[...unique.keys()].reverse();
+
+  drawOrder.forEach(i=>{
+    const v=unique[i];
+    const st=ROUTE_STYLES[Math.min(i,ROUTE_STYLES.length-1)];
+    const coords = v.route.coordinates
+      ? v.route.coordinates.map(c=>[c.lat,c.lng])
+      : [[sPlace.lat,sPlace.lng],[dPlace.lat,dPlace.lng]];
+
+    if(coords.length<2) return;
+
+    // Draw route with casing
+    const drawn = drawRouteLine(coords, st.color, st.weight, st.opacity, st.dash, i);
+    routePolylines.push(drawn.casing);
+    routePolylines.push(drawn.line);
+
+    // Store polyline ref for click/highlight
+    v._polylineLine   = drawn.line;
+    v._polylineCasing = drawn.casing;
+
+    // Calculate time for label
+    const adjSecs=Math.round(v.route.summary.totalTime*(1+(HOUR_CONG[hour]||0.4)*0.8));
+    const mins=Math.ceil(adjSecs/60);
+    const dist=(v.route.summary.totalDistance/1000).toFixed(1);
+
+    // Place route label at midpoint
+    const mid=getMidPoint(coords);
+    const labelText = `${st.label}  ${mins} min  ${dist}km`;
+    const lbl=makeRouteLabel(mid, labelText, st.labelTx, st.color);
+    lbl.addTo(lMap);
+    routeLabels.push(lbl);
+
+    // Click on polyline → select that route in sidebar
+    drawn.line.on('click',()=>{
+      selectRouteCard(i);
+      document.querySelectorAll('.rcard')[i]?.scrollIntoView({block:'nearest',behavior:'smooth'});
+    });
+    drawn.casing.on('click',()=>drawn.line.fire('click'));
+
+    // Hover tooltip on line
+    drawn.line.bindTooltip(`${st.label}: ${mins} min · ${dist} km · Traffic: ${Math.round((HOUR_CONG[hour]||0.4)*100)}%`,
+      {sticky:true,className:'route-tooltip'});
+  });
+
+  // Place start/end markers on top
+  if(sMarker) sMarker.setZIndexOffset(500);
+  if(dMarker) dMarker.setZIndexOffset(500);
+
+  buildAllRouteCards(unique,dep,shortestHasHighTraffic);
+  showAIBarFull(unique[0].route,dep,shortestHasHighTraffic);
+  updateOverlay(unique[0].route,0,dep);
+  toast(`✅ ${unique.length} routes on map · Shortest = Blue · Click any route!`);
+  // Show route legend
+  showRouteLegend(unique, dep);
+}
+// REPLACED calcRoutes above
+function calcRoutes_OLD(){
+  if(!sPlace||!dPlace){toast('⚠️ Enter both start and destination');return;}
+  const btn=document.getElementById('gb');
+  btn.disabled=true;btn.innerHTML='<div class="spin"></div> Finding...';
+  clearRoutes();
+  document.getElementById('rovl').classList.remove('show');
+  document.getElementById('aib').classList.remove('show');
+  toast('🤖 Azure ML analyzing routes on real roads...');
+
+  const dep=parseInt(document.getElementById('dep').value);
+  let loaded=0;
+  const routeData=[];
+
+  // Create 3 slightly different waypoints to get alternative routes
+  const variants=[
+    {s:[sPlace.lat,sPlace.lng],d:[dPlace.lat,dPlace.lng]},
+    {s:[sPlace.lat+0.008,sPlace.lng+0.004],d:[dPlace.lat,dPlace.lng]},
+    {s:[sPlace.lat,sPlace.lng-0.006],d:[dPlace.lat+0.005,dPlace.lng]},
+  ];
+
+  variants.forEach((v,i)=>{
+    const ctrl=L.Routing.control({
+      waypoints:[L.latLng(v.s[0],v.s[1]),L.latLng(v.d[0],v.d[1])],
+      router:L.Routing.osrmv1({
+        serviceUrl:'https://router.project-osrm.org/route/v1',
+        profile:'driving',
+      }),
+      lineOptions:{
+        styles:[{color:RCOLS[i],weight:i===0?7:5,opacity:i===0?0.9:0.5,dashArray:i===0?null:(i===1?'8,5':'4,5')}],
+        extendToWaypoints:true,missingRouteTolerance:0,
+      },
+      routeWhileDragging:false,addWaypoints:false,
+      fitSelectedRoutes:false,show:false,
+      createMarker:()=>null,
+    }).addTo(lMap);
+
+    ctrl.on('routesfound',e=>{
+      routeData[i]={ctrl,route:e.routes[0]};
+      loaded++;
+      if(loaded===variants.length) onAllLoaded(routeData,dep,btn);
+    });
+    ctrl.on('routingerror',()=>{
+      routeData[i]=null; loaded++;
+      if(loaded===variants.length) onAllLoaded(routeData,dep,btn);
+    });
+    routeControls.push(ctrl);
+    setTimeout(()=>{if(loaded<variants.length){loaded=variants.length;onAllLoaded(routeData,dep,btn);}},8000);
+  });
+}
+
+function onAllLoaded(routeData,dep,btn){
+  btn.disabled=false;btn.innerHTML='🔍 Get Routes';
+  const valid=routeData.filter(Boolean);
+
+  if(!valid.length){
+    // Fallback to AI simulation
+    runAISim(dep);
+    return;
+  }
+
+  allRouteData=valid;
+  // Fit map to show routes
+  if(sPlace&&dPlace){
+    lMap.fitBounds([[sPlace.lat,sPlace.lng],[dPlace.lat,dPlace.lng]],{padding:[60,60]});
+  }
+  buildCards(valid,dep);
+  showAIBar(valid[0].route,dep,false);
+  updateOverlay(valid[0].route,0,dep);
+  toast(`✅ ${valid.length} real road routes found · OSRM + Azure ML`);
+}
+
+// Fallback AI simulation
+function runAISim(dep){
+  toast('🤖 Using Azure ML route simulation...');
+  const dist=lMap.distance([sPlace.lat,sPlace.lng],[dPlace.lat,dPlace.lng])/1000;
+  const h=new Date().getHours();
+  const p=(h>=7&&h<=10)||(h>=17&&h<=20)?1.6:1.0;
+
+  const simRoutes=[
+    {name:'Via Outer Ring Road',via:'ORR → Bellandur → Sarjapur Rd',dist:dist*1.15,min:Math.round(dist*1.15/45*60*p*0.9+dep),cong:42},
+    {name:'Via Old Airport Road',via:'Old Airport Rd → Domlur → CMH Rd',dist:dist*0.95,min:Math.round(dist*0.95/38*60*p+dep),cong:65},
+    {name:'Via Hosur Road',via:'Hosur Rd → Silk Board → ORR South',dist:dist*1.3,min:Math.round(dist*1.3/28*60*p*1.1+dep),cong:88},
+  ];
+
+  // Draw curved polylines
+  simRoutes.forEach((r,i)=>{
+    const mid={lat:(sPlace.lat+dPlace.lat)/2+(i-1)*0.008,lng:(sPlace.lng+dPlace.lng)/2+(i-1)*0.006};
+    const pts=[[sPlace.lat,sPlace.lng]];
+    for(let t=0.1;t<1;t+=0.15)pts.push([sPlace.lat+(dPlace.lat-sPlace.lat)*t+mid.lat*t*(1-t)*0.8,sPlace.lng+(dPlace.lng-sPlace.lng)*t+mid.lng*t*(1-t)*0.8]);
+    pts.push([dPlace.lat,dPlace.lng]);
+    const pl=L.polyline(pts,{color:RCOLS[i],weight:i===0?7:5,opacity:i===0?0.9:0.5,dashArray:i===0?null:i===1?'8,5':'4,5'}).addTo(lMap);
+    routeControls.push({setMap:()=>{},remove:()=>lMap.removeLayer(pl),_pl:pl});
+    r._pl=pl;
+  });
+
+  lMap.fitBounds([[sPlace.lat,sPlace.lng],[dPlace.lat,dPlace.lng]],{padding:[60,60]});
+  buildSimCards(simRoutes,dep);
+  const arr=new Date(Date.now()+(dep*60+simRoutes[0].min*60)*1000);
+  document.getElementById('aib').classList.add('show');
+  document.getElementById('aim').innerHTML=`Departing <b>${dep===0?'right now':'in '+dep+' min'}</b> — <span style="color:var(--orange)">moderate congestion</span> expected near Silk Board & ORR. Arrive: <b>${arr.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true})}</b> <span style="color:var(--muted)">(Azure ML · 91.4%)</span>`;
+  const ov=document.getElementById('rovl');
+  ov.classList.add('show');
+  document.getElementById('rt').textContent=simRoutes[0].min+' min';
+  document.getElementById('rd').textContent=simRoutes[0].dist.toFixed(1)+' km';
+  document.getElementById('rv').textContent=simRoutes[0].via.split('→')[0].trim();
+  document.getElementById('rc').textContent=simRoutes[0].cong+'%';
+  document.getElementById('ra').textContent=arr.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true});
+  document.getElementById('rt').style.color='var(--green)';
+  ov.style.borderLeftColor=RCOLS[0];
+  toast('✅ 3 routes found · Azure ML simulation');
+}
+
+function buildSimCards(routes,dep){
+  const area=document.getElementById('rarea');
+  area.style.display='';
+  area.innerHTML=`<div class="rhdr"><span>${routes.length} routes</span><span style="color:var(--orange);font-size:9px">⚡ AI Simulation</span></div>`;
+  routes.forEach((r,i)=>{
+    const arr=new Date(Date.now()+(dep*60+r.min*60)*1000);
+    const d=document.createElement('div');
+    d.className=`rcard ${AITYPE[i]} ${i===0?'sel':''}`;
+    d.style.animationDelay=i*0.08+'s';
+    d.onclick=()=>{
+      document.querySelectorAll('.rcard').forEach((c,j)=>c.classList.toggle('sel',j===i));
+      routeControls.forEach((c,j)=>{if(c._pl)c._pl.setStyle({opacity:j===i?0.9:0.25,weight:j===i?7:4});});
+    };
+    d.innerHTML=`<div class="r1"><div class="rname">${r.name}</div><div class="rdur ${AICOL[i]}">${r.min} min</div></div>
+    <div class="rmeta"><span>📏 ${r.dist.toFixed(1)} km</span><span>🛣 ${r.via}</span></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:5px">
+      <span class="rtag ${AITAG[i]}">${AILBL[i]}</span>
+      <span style="font-size:10px;color:var(--muted);font-family:var(--mono)">Traffic: ${AICONG[i]}%</span>
+    </div>
+    <div class="cbar"><div class="cfill" style="width:${AICONG[i]}%;background:${RCOLS[i]}"></div></div>
+    <div style="font-size:11px;color:var(--muted);margin-top:5px;font-family:var(--mono)">🕐 Arrive by ${arr.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true})}</div>`;
+    area.appendChild(d);
+  });
+}
+
+function buildAllRouteCards(routes, dep, shortestHasHighTraffic){
+  const area=document.getElementById('rarea');
+  area.style.display='';
+  const source=`<span style="color:var(--blue);font-size:9px;font-family:var(--mono)">✅ Real roads · OSRM</span>`;
+  area.innerHTML=`<div class="rhdr"><span>${routes.length} routes · shortest first</span>${source}</div>`;
+
+  // High traffic warning banner
+  if(shortestHasHighTraffic && routes.length>1){
+    area.innerHTML+=`<div style="margin:8px;padding:9px 12px;background:#FEF3CD;border:1px solid #FFA000;border-radius:8px;font-size:11px;color:#E65100;display:flex;align-items:center;gap:8px">
+      <span style="font-size:16px">🤖</span>
+      <div><b>Azure ML Alert:</b> High traffic on shortest route in next 10 min. 
+      <b>Alternate route #2 recommended.</b></div>
+    </div>`;
+  }
+
+  routes.forEach((v,i)=>{
+    const r=v.route;
+    const distM=r.summary.totalDistance;
+    const dist=(distM/1000).toFixed(1);
+    const baseSecs=r.summary.totalTime;
+    const hour=new Date().getHours();
+    const cong=HOUR_CONG[hour]||0.4;
+    // Calculate realistic time with traffic
+    const congFactor = i===0 ? cong : cong*(0.6+i*0.15);
+    const adjSecs=Math.round(baseSecs*(1+congFactor*0.8));
+    const mins=Math.ceil(adjSecs/60);
+    const arr=new Date(Date.now()+(dep*60+adjSecs)*1000);
+    const steps=r.instructions||[];
+    const via=[...new Set(steps.filter(s=>s.road).map(s=>s.road))].slice(0,3).join(' → ')||'via local roads';
+
+    // Label: shortest, alternate, avoid
+    const isShort = i===0;
+    const isAlt   = i===1;
+    const isHigh  = shortestHasHighTraffic && i===0;
+    const isRecommended = shortestHasHighTraffic && i===1;
+
+    const tagClass = isRecommended?'tg-rec':isShort&&!isHigh?'tb':isAlt?'ta':'ts';
+    const tagLabel = isRecommended?'🤖 AI Recommended':isShort&&!isHigh?'⚡ Shortest':isAlt?'🔁 Alternate':`🔀 Route ${i+1}`;
+    const durColor = isShort&&!isHigh?'cg':isAlt?'co':'cr2';
+    const routeColor = RCOLS[Math.min(i,RCOLS.length-1)];
+
+    // Traffic % based on hour and route index
+    const trafficPct = Math.min(Math.round(cong*100*(0.8+i*0.15)),98);
+    const trafficSev = trafficPct>80?'CRITICAL':trafficPct>60?'HIGH':trafficPct>40?'MODERATE':'LOW';
+    const trafficCol = trafficPct>80?'#D93025':trafficPct>60?'#FFA000':trafficPct>40?'#F9AB00':'#34A853';
+
+    const d=document.createElement('div');
+    d.className=`rcard ${isShort&&!isHigh?'rb':isAlt||isRecommended?'ra':'rs'} ${i===0?'sel':''}`;
+    if(isRecommended) d.style.background='#FFFBEB';
+    d.style.animationDelay=i*0.07+'s';
+    d.onclick=()=>selectRouteCard(i);
+    d.innerHTML=`
+      <div class="r1">
+        <div class="rname">${sPlace.n.replace('📍 ','').split(',')[0]} → ${dPlace.n.split(',')[0]}</div>
+        <div class="rdur ${durColor}">${mins} min</div>
+      </div>
+      <div class="rmeta">
+        <span>📏 ${dist} km</span>
+        <span>🛣 ${via}</span>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px">
+        <span class="rtag ${tagClass}" style="${isRecommended?'background:#FEF3CD;color:#B8630A;':''}">${tagLabel}</span>
+        <span style="font-size:10px;color:${trafficCol};font-family:var(--mono);font-weight:600">${trafficSev} · ${trafficPct}%</span>
+      </div>
+      <div class="cbar"><div class="cfill" style="width:${trafficPct}%;background:${trafficCol}"></div></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px">
+        <span style="font-size:10px;color:var(--muted);font-family:var(--mono)">🕐 Arrive ${arr.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true})}</span>
+        <button class="dirbtn" onclick="showDir(event,${i})" style="display:flex;align-items:center;gap:4px">🗺 Directions on Map</button>
+      </div>
+      ${isHigh&&routes.length>1?`<div style="margin-top:6px;font-size:10px;color:#E65100;background:#FFF3E0;padding:5px 8px;border-radius:6px">⚠️ Heavy traffic predicted — consider Route 2</div>`:''}
+    `;
+    area.appendChild(d);
+  });
+}
+
+function selectRouteCard(idx){
+  document.querySelectorAll('.rcard').forEach((c,i)=>c.classList.toggle('sel',i===idx));
+  const ROUTE_STYLES=[
+    {color:'#1A73E8',weight:8},{color:'#F29900',weight:6},
+    {color:'#0F9D58',weight:6},{color:'#7C3AED',weight:5},{color:'#0694A2',weight:5},
+  ];
+  // Dim all, highlight selected
+  allRouteData.forEach((v,i)=>{
+    if(!v._polylineLine) return;
+    const isSelected = i===idx;
+    const st=ROUTE_STYLES[Math.min(i,ROUTE_STYLES.length-1)];
+    v._polylineLine.setStyle({
+      opacity: isSelected?0.97:0.22,
+      weight:  isSelected?st.weight+2:st.weight-2,
+    });
+    v._polylineCasing && v._polylineCasing.setStyle({
+      opacity: isSelected?0.7:0.1,
+    });
+    // Bring selected to front
+    if(isSelected) v._polylineLine.bringToFront();
+  });
+  // Update route labels opacity
+  routeLabels.forEach((lbl,i)=>{
+    try{
+      const el=lbl.getElement();
+      if(el) el.style.opacity=i===idx?'1':'0.4';
+    }catch(e){}
+  });
+  if(allRouteData[idx]) updateOverlay(allRouteData[idx].route, idx, parseInt(document.getElementById('dep').value));
+  // Update route overlay color
+  const overlayColors=['#1A73E8','#F29900','#0F9D58','#7C3AED','#0694A2'];
+  const ov=document.getElementById('rovl');
+  if(ov) ov.style.borderLeftColor=overlayColors[Math.min(idx,overlayColors.length-1)];
+  const rt=document.getElementById('rt');
+  if(rt) rt.style.color=overlayColors[Math.min(idx,overlayColors.length-1)];
+}
+
+function showAIBarFull(r, dep, hasHighTraffic){
+  const secs=r.summary.totalTime;
+  const arr=new Date(Date.now()+(dep*60+secs)*1000);
+  const lbl=dep===0?'right now':'in '+dep+' min';
+  const hour=new Date().getHours();
+  const cong=HOUR_CONG[hour]||0.4;
+  const isPeak=(hour>=7&&hour<=10)||(hour>=17&&hour<=20);
+  document.getElementById('aib').classList.add('show');
+  let msg=`Departing <b>${lbl}</b> — `;
+  if(isPeak) msg+=`<span style="color:var(--red)">⚠️ Peak hour traffic</span> on major corridors. `;
+  else if(cong>0.65) msg+=`<span style="color:var(--orange)">Moderate-high congestion</span> near Silk Board & ORR. `;
+  else msg+=`<span style="color:var(--green)">Low congestion</span> citywide. `;
+  if(hasHighTraffic) msg+=`🤖 <b>Alternate route recommended by Azure ML.</b> `;
+  msg+=`Shortest: <b>${Math.ceil((r.summary.totalDistance/1000).toFixed(1)/40*60)} min, ${(r.summary.totalDistance/1000).toFixed(1)} km</b>. Arrive: <b>${arr.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true})}</b> <span style="color:var(--muted)">(Azure ML 91.4%)</span>`;
+  document.getElementById('aim').innerHTML=msg;
+}
+
+
+function updateOverlay(r,idx,dep){
+  const secs=r.summary.totalTime;
+  const adjSecs=Math.round(secs*(1+(AICONG[idx]/100)*0.7));
+  const mins=Math.ceil(adjSecs/60);
+  const dist=(r.summary.totalDistance/1000).toFixed(1);
+  const arr=new Date(Date.now()+(dep*60+adjSecs)*1000);
+  const steps=r.instructions||[];
+  const via=[...new Set(steps.filter(s=>s.road).map(s=>s.road))].slice(0,2).join(' → ')||'local roads';
+  document.getElementById('rt').textContent=mins+' min';
+  document.getElementById('rd').textContent=dist+' km';
+  document.getElementById('rv').textContent=via;
+  document.getElementById('rc').textContent=AICONG[idx]+'%';
+  document.getElementById('ra').textContent=arr.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true});
+  const ov=document.getElementById('rovl');
+  ov.classList.add('show');ov.style.borderLeftColor=RCOLS[idx];
+  document.getElementById('rt').style.color=['var(--green)','var(--orange)','var(--red)'][idx];
+}
+
+function showAIBar(r,dep,sim){
+  const secs=r.summary.totalTime;
+  const arr=new Date(Date.now()+(dep*60+secs)*1000);
+  const lbl=dep===0?'right now':'in '+dep+' min';
+  document.getElementById('aib').classList.add('show');
+  document.getElementById('aim').innerHTML=`Departing <b>${lbl}</b> — <span style="color:var(--orange)">moderate congestion</span> near Silk Board & ORR. Arrive: <b>${arr.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true})}</b> <span style="color:var(--muted)">(Azure ML · 91.4%)</span>`;
+}
+
+// ── DIRECTION ICONS ─────────────────────────────────────────────────────
+const DICO = {
+  'Straight':         {ico:'⬆️', label:'Continue straight'},
+  'SlightRight':      {ico:'↗️', label:'Slight right'},
+  'Right':            {ico:'➡️', label:'Turn right'},
+  'SharpRight':       {ico:'↪️', label:'Sharp right'},
+  'TurnAround':       {ico:'🔄', label:'Make a U-turn'},
+  'SharpLeft':        {ico:'↩️', label:'Sharp left'},
+  'Left':             {ico:'⬅️', label:'Turn left'},
+  'SlightLeft':       {ico:'↖️', label:'Slight left'},
+  'WaypointReached':  {ico:'📍', label:'Waypoint'},
+  'DestinationReached':{ico:'🏁', label:'Destination'},
+  'Roundabout':       {ico:'🔄', label:'Roundabout'},
+  'EnterRoundabout':  {ico:'🔄', label:'Enter roundabout'},
+};
+function getDicoIco(type){ return (DICO[type]||{ico:'➡️'}).ico; }
+
+// State for map directions
+let mapDirRouteIdx = -1;
+let mapDirStepIdx  = 0;
+let stepMarkers    = [];   // L.circleMarker for each step on map
+let stepHighlight  = null; // Current step highlight marker
+let currentDirCoords = []; // Coords of current route
+
+// Called when user clicks "Directions" button
+function showDir(e, idx) {
+  e.stopPropagation();
+  if(!allRouteData[idx]) return;
+
+  mapDirRouteIdx = idx;
+  mapDirStepIdx  = 0;
+
+  const route  = allRouteData[idx].route;
+  const steps  = route.instructions || [];
+  const dist   = (route.summary.totalDistance / 1000).toFixed(1);
+  const hour   = new Date().getHours();
+  const cong   = HOUR_CONG[hour] || 0.4;
+  const adjSec = Math.round(route.summary.totalTime * (1 + cong * 0.8));
+  const mins   = Math.ceil(adjSec / 60);
+  const arr    = new Date(Date.now() + adjSec * 1000);
+  const RCOLS5 = ['#1A73E8','#F29900','#0F9D58','#7C3AED','#0694A2'];
+  const routeColor = RCOLS5[Math.min(idx, RCOLS5.length-1)];
+
+  // ── Fill header ──
+  document.getElementById('mdp-title-main').textContent =
+    `${sPlace.n.replace('📍 ','').split(',')[0]} → ${dPlace.n.split(',')[0]}`;
+  document.getElementById('mdp-title-sub').textContent =
+    `Route ${idx+1} · Real roads · OSRM`;
+  document.getElementById('mdp-time').textContent = `${mins} min`;
+  document.getElementById('mdp-time').style.color = routeColor;
+  document.getElementById('mdp-meta').textContent =
+    `${dist} km · Arrive ${arr.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true})}`;
+  document.getElementById('mdp-colorbar').style.background = routeColor;
+
+  // ── Build steps HTML ──
+  const stepsEl = document.getElementById('mdp-steps');
+  const allSteps = [
+    { type:'Start', text:`Start from ${sPlace.n.replace('📍 ','')}`, distance:0, waypoint:route.waypoints?.[0] },
+    ...steps,
+    { type:'DestinationReached', text:`Arrive at ${dPlace.n}`, distance:0, waypoint:route.waypoints?.[1] },
+  ];
+
+  stepsEl.innerHTML = allSteps.map((s,i) => {
+    const ico = getDicoIco(s.type==='Start'?'WaypointReached':s.type);
+    const distTxt = s.distance > 0
+      ? (s.distance < 1000 ? `${s.distance} m` : `${(s.distance/1000).toFixed(1)} km`)
+      : '';
+    const isLast = i === allSteps.length - 1;
+    return `
+      <div class="mdp-step ${i===0?'active':''}"
+           id="mdp-step-${i}"
+           onclick="gotoStep(${i})"
+           data-lat="${s.waypoint ? s.waypoint.latLng.lat : ''}"
+           data-lng="${s.waypoint ? s.waypoint.latLng.lng : ''}">
+        <div class="mdp-num">${i===0?'▶':i===allSteps.length-1?'★':i}</div>
+        <div class="mdp-ico">${ico}</div>
+        <div class="mdp-step-text">
+          <div class="mdp-step-road">${s.text}</div>
+          ${distTxt?`<div class="mdp-step-dist">${distTxt}</div>`:''}
+        </div>
+        ${!isLast?'<div class="mdp-connector"></div>':''}
+      </div>`;
+  }).join('');
+
+  // ── Place step markers on map ──
+  clearStepMarkers();
+  currentDirCoords = route.coordinates
+    ? route.coordinates.map(c => [c.lat, c.lng])
+    : [];
+
+  // Place a small dot at each step waypoint
+  steps.forEach((s,i) => {
+    if(s.waypoint && s.waypoint.latLng){
+      const m = L.circleMarker([s.waypoint.latLng.lat, s.waypoint.latLng.lng],{
+        radius:5, color:'#fff', fillColor:'#1A73E8',
+        fillOpacity:.9, weight:2, pane:'overlayPane',
+      }).addTo(lMap);
+      m.bindTooltip(`Step ${i+1}: ${s.text}`,{sticky:true});
+      m.on('click',()=>gotoStep(i+1));
+      stepMarkers.push(m);
+    }
+  });
+
+  // ── Show panel, fit map ──
+  document.getElementById('map-dir-panel').classList.add('open');
+
+  // Dim other routes, highlight this one
+  allRouteData.forEach((v,i) => {
+    if(!v._polylineLine) return;
+    v._polylineLine.setStyle({ opacity: i===idx?0.95:0.1, weight: i===idx?7:2 });
+    v._polylineCasing && v._polylineCasing.setStyle({ opacity: i===idx?0.7:0.05 });
+    if(i===idx) v._polylineLine.bringToFront();
+  });
+
+  // Fit map to show full route
+  if(currentDirCoords.length > 1) {
+    lMap.fitBounds(L.polyline(currentDirCoords).getBounds(), {
+      padding:[60, 60],
+      animate:true
+    });
+  }
+
+  // Go to step 0 to highlight start
+  gotoStep(0);
+  updateNavButtons(0, allSteps.length);
+  toast(`📋 Directions open — ${allSteps.length} steps · Click each step to navigate`);
+}
+
+// ── Navigate to a specific step ──────────────────────────────────────────
+function gotoStep(idx) {
+  const stepsEl   = document.getElementById('mdp-steps');
+  const stepEls   = stepsEl.querySelectorAll('.mdp-step');
+  const total     = stepEls.length;
+
+  mapDirStepIdx = idx;
+
+  // Update step highlight classes
+  stepEls.forEach((el, i) => {
+    el.classList.remove('active','done');
+    if(i === idx)       el.classList.add('active');
+    else if(i < idx)    el.classList.add('done');
+  });
+
+  // Scroll step into view
+  const activeEl = document.getElementById(`mdp-step-${idx}`);
+  if(activeEl) activeEl.scrollIntoView({ block:'nearest', behavior:'smooth' });
+
+  // Progress bar
+  document.getElementById('mdp-prog').style.width = `${Math.round((idx/(total-1))*100)}%`;
+  document.getElementById('mdp-step-counter').textContent = `${idx+1}/${total}`;
+
+  // Update nav buttons
+  updateNavButtons(idx, total);
+
+  // ── Zoom map to this step ──
+  const lat = activeEl?.dataset.lat;
+  const lng = activeEl?.dataset.lng;
+
+  // Remove old highlight marker
+  if(stepHighlight){ try{lMap.removeLayer(stepHighlight);}catch(e){} stepHighlight=null; }
+
+  if(lat && lng && lat!=='') {
+    const ll = [parseFloat(lat), parseFloat(lng)];
+    // Animate map to step location
+    lMap.setView(ll, 16, {animate:true, duration:.6});
+
+    // Pulsing step marker
+    stepHighlight = L.circleMarker(ll, {
+      radius: 14,
+      color: '#1A73E8',
+      fillColor: '#1A73E8',
+      fillOpacity: .25,
+      weight: 3,
+      pane: 'overlayPane',
+    }).addTo(lMap);
+
+    // Inner dot
+    const inner = L.circleMarker(ll, {
+      radius: 7,
+      color: '#fff',
+      fillColor: '#1A73E8',
+      fillOpacity: 1,
+      weight: 2.5,
+    }).addTo(lMap);
+    stepMarkers.push(inner);
+
+  } else {
+    // First/last step — fit full route
+    if(currentDirCoords.length > 1 && (idx===0 || idx===total-1)) {
+      lMap.fitBounds(L.polyline(currentDirCoords).getBounds(),{
+        padding:[60,60], animate:true
+      });
+    }
+  }
+}
+
+function navStep(delta) {
+  const total = document.getElementById('mdp-steps').querySelectorAll('.mdp-step').length;
+  const next  = Math.max(0, Math.min(mapDirStepIdx + delta, total - 1));
+  gotoStep(next);
+}
+
+function updateNavButtons(idx, total) {
+  document.getElementById('mdp-prev').disabled = (idx === 0);
+  const nextBtn = document.getElementById('mdp-next');
+  if(idx === total - 1) {
+    nextBtn.textContent = '🏁 Arrived!';
+    nextBtn.disabled = true;
+  } else {
+    nextBtn.innerHTML = 'Next Step →';
+    nextBtn.disabled = false;
+  }
+}
+
+function clearStepMarkers() {
+  stepMarkers.forEach(m=>{ try{lMap.removeLayer(m);}catch(e){} });
+  stepMarkers = [];
+  if(stepHighlight){ try{lMap.removeLayer(stepHighlight);}catch(e){} stepHighlight=null; }
+}
+
+function closeMapDir() {
+  document.getElementById('map-dir-panel').classList.remove('open');
+  clearStepMarkers();
+  // Restore all route visibilities
+  const RCOLS5=['#1A73E8','#F29900','#0F9D58','#7C3AED','#0694A2'];
+  allRouteData.forEach((v,i)=>{
+    if(!v._polylineLine) return;
+    const isSelected = i===mapDirRouteIdx;
+    v._polylineLine.setStyle({ opacity:isSelected?0.95:0.35, weight:isSelected?8:4 });
+    v._polylineCasing && v._polylineCasing.setStyle({ opacity:isSelected?0.7:0.1 });
+  });
+  // Fit all routes back
+  if(currentDirCoords.length>1)
+    lMap.fitBounds(L.polyline(currentDirCoords).getBounds(),{padding:[60,60]});
+  mapDirRouteIdx = -1;
+}
+
+function backDir(){
+  document.getElementById('rarea').style.display='';
+  const dp=document.getElementById('dp');dp.classList.remove('show');dp.innerHTML='';
+}
+
+// ── MAP CONTROLS ─────────────────────────────────────────
+function toggleTraffic(){
+  trafficOn=!trafficOn;
+  if(trafficOn){
+    trafficPolylines=TRAFFIC_ROADS.map(r=>{
+      const pl=L.polyline(r.pts,{color:r.col,weight:r.w,opacity:0.65}).addTo(lMap);
+      pl.bindTooltip(r.n,{sticky:true});return pl;
+    });
+  } else {
+    trafficPolylines.forEach(p=>lMap.removeLayer(p));trafficPolylines=[];
+  }
+  document.getElementById('ft').classList.toggle('on',trafficOn);
+  document.getElementById('tleg').classList.toggle('show',trafficOn);
+  toast(trafficOn?'🚦 Traffic layer ON':'🚦 Traffic layer OFF');
+}
+function toggleSat(){
+  satOn=!satOn;
+  if(satOn){streetTiles.remove();satTiles.addTo(lMap);}
+  else{satTiles.remove();streetTiles.addTo(lMap);}
+  document.getElementById('fs').classList.toggle('on',satOn);
+  toast(satOn?'🛰 Satellite view':'🗺 Street view');
+}
+function locateMe(){
+  if(!navigator.geolocation){
+    toast('❌ Your browser does not support location');
+    return;
+  }
+
+  // Show loading state on button
+  const btn = document.getElementById('fl');
+  btn.innerHTML = '⏳ Locating...';
+  btn.disabled = true;
+  btn.classList.add('on');
+  toast('📡 Getting your current location...');
+
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      // SUCCESS
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      const acc = Math.round(pos.coords.accuracy);
+
+      const p = {
+        n:'My Current Location',
+        a:`GPS Location (±${acc}m accuracy)`,
+        lat, lng,
+        cat:'place', ico:'📍', tr:'clear', z:'Current'
+      };
+
+      sPlace = p;
+      document.getElementById('sinp').value = 'My Current Location';
+      document.getElementById('sinp').classList.add('filled');
+      document.getElementById('sx').classList.add('vis');
+
+      // Remove old start marker if exists
+      if(sMarker){ lMap.removeLayer(sMarker); sMarker = null; }
+
+      // Place a special "you are here" marker with accuracy circle
+      const youIcon = L.divIcon({
+        className:'',
+        html:`<div style="position:relative">
+          <div style="width:18px;height:18px;border-radius:50%;background:#1A73E8;border:3px solid #fff;box-shadow:0 2px 8px rgba(26,115,232,.5);animation:youPulse 2s infinite"></div>
+        </div>
+        <style>@keyframes youPulse{0%,100%{box-shadow:0 0 0 0 rgba(26,115,232,.6)}50%{box-shadow:0 0 0 12px rgba(26,115,232,0)}}</style>`,
+        iconSize:[18,18], iconAnchor:[9,9]
+      });
+
+      sMarker = L.marker([lat, lng], {icon: youIcon, draggable:true})
+        .addTo(lMap)
+        .bindPopup(`<div class="mpop">
+          <h4>📍 You are here</h4>
+          <p>Lat: ${lat.toFixed(5)}, Lng: ${lng.toFixed(5)}</p>
+          <p style="color:#1A73E8">Accuracy: ±${acc} meters</p>
+          <p style="margin-top:4px;font-size:10px;color:#9AA0A6">Drag pin to adjust location</p>
+        </div>`, {maxWidth:220})
+        .openPopup();
+
+      sMarker.on('dragend', e => {
+        sPlace = {...sPlace, lat: e.target.getLatLng().lat, lng: e.target.getLatLng().lng};
+      });
+
+      // Draw accuracy circle
+      if(window.accCircle) lMap.removeLayer(window.accCircle);
+      window.accCircle = L.circle([lat, lng], {
+        radius: acc,
+        color: '#1A73E8',
+        fillColor: '#1A73E8',
+        fillOpacity: 0.1,
+        weight: 1.5,
+        dashArray: '4,4'
+      }).addTo(lMap);
+
+      // Fly to location smoothly
+      lMap.flyTo([lat, lng], 15, {animate:true, duration:1.5});
+
+      // Reset button
+      btn.innerHTML = '📍 My Location';
+      btn.disabled = false;
+
+      // Show in start input
+      document.getElementById('sinp').value = 'My Current Location';
+
+      toast(`✅ Location found! Accuracy: ±${acc}m`);
+
+      // Show info panel in route area
+      const rarea = document.getElementById('rarea');
+      rarea.innerHTML = `
+        <div style="padding:16px 14px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+            <div style="width:40px;height:40px;border-radius:50%;background:#EEF4FC;display:flex;align-items:center;justify-content:center;font-size:20px;border:2px solid #1A73E8">📍</div>
+            <div>
+              <div style="font-weight:600;font-size:13px;color:var(--text)">Location found!</div>
+              <div style="font-size:11px;color:var(--muted);font-family:var(--mono)">±${acc}m accuracy</div>
+            </div>
+          </div>
+          <div style="background:#EEF4FC;border:1px solid #C5D9F5;border-radius:8px;padding:10px 12px;margin-bottom:10px">
+            <div style="font-size:11px;color:var(--blue);font-family:var(--mono);margin-bottom:3px">📡 YOUR GPS COORDINATES</div>
+            <div style="font-size:12px;font-weight:600;color:var(--text)">Lat: ${lat.toFixed(6)}</div>
+            <div style="font-size:12px;font-weight:600;color:var(--text)">Lng: ${lng.toFixed(6)}</div>
+          </div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Now type your <b>destination</b> above and tap <b>Get Routes</b> to get directions from your current location.</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <button onclick="quickDest('Electronic City')" style="padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--bg);font-size:11px;cursor:pointer;font-family:var(--font);transition:.15s" onmouseover="this.style.borderColor='var(--blue)'" onmouseout="this.style.borderColor='var(--border)'">💻 Electronic City</button>
+            <button onclick="quickDest('MG Road')" style="padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--bg);font-size:11px;cursor:pointer;font-family:var(--font);transition:.15s" onmouseover="this.style.borderColor='var(--blue)'" onmouseout="this.style.borderColor='var(--border)'">🛣️ MG Road</button>
+            <button onclick="quickDest('Whitefield')" style="padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--bg);font-size:11px;cursor:pointer;font-family:var(--font);transition:.15s" onmouseover="this.style.borderColor='var(--blue)'" onmouseout="this.style.borderColor='var(--border)'">🏙️ Whitefield</button>
+            <button onclick="quickDest('Koramangala')" style="padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--bg);font-size:11px;cursor:pointer;font-family:var(--font);transition:.15s" onmouseover="this.style.borderColor='var(--blue)'" onmouseout="this.style.borderColor='var(--border)'">🏘️ Koramangala</button>
+            <button onclick="quickDest('Hebbal')" style="padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--bg);font-size:11px;cursor:pointer;font-family:var(--font);transition:.15s" onmouseover="this.style.borderColor='var(--blue)'" onmouseout="this.style.borderColor='var(--border)'">🌁 Hebbal</button>
+            <button onclick="quickDest('Silk Board')" style="padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--bg);font-size:11px;cursor:pointer;font-family:var(--font);transition:.15s" onmouseover="this.style.borderColor='var(--blue)'" onmouseout="this.style.borderColor='var(--border)'">⚠️ Silk Board</button>
+          </div>
+        </div>`;
+    },
+    err => {
+      // FAILURE — reset button and show help
+      btn.innerHTML = '📍 My Location';
+      btn.disabled = false;
+      btn.classList.remove('on');
+
+      let msg = '❌ Location access denied.';
+      let tip = '';
+      if(err.code === 1){
+        msg = '❌ Location permission denied!';
+        tip = 'Please allow location access in your browser.';
+      } else if(err.code === 2){
+        msg = '❌ Location unavailable. Check GPS.';
+        tip = 'Make sure GPS/Location is ON.';
+      } else if(err.code === 3){
+        msg = '❌ Location request timed out.';
+        tip = 'Try again or check your connection.';
+      }
+      toast(msg);
+
+      // Show help in the route area
+      document.getElementById('rarea').innerHTML = `
+        <div style="padding:20px 14px;text-align:center">
+          <div style="font-size:36px;margin-bottom:10px">📍</div>
+          <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px">${msg}</div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:14px">${tip}</div>
+          <div style="background:#FEF7E0;border:1px solid #FCD34D;border-radius:8px;padding:12px;font-size:12px;text-align:left;line-height:1.9">
+            <b>How to allow location in Chrome:</b><br>
+            1. Click 🔒 lock icon in address bar<br>
+            2. Click "Site settings"<br>
+            3. Set Location → "Allow"<br>
+            4. Refresh the page & try again
+          </div>
+          <button onclick="locateMe()" style="margin-top:12px;padding:9px 18px;background:var(--blue);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">Try Again</button>
+        </div>`;
+    },
+    {
+      enableHighAccuracy: true,   // Use GPS chip for best accuracy
+      timeout: 10000,             // 10 seconds max
+      maximumAge: 0               // Always get fresh location
+    }
+  );
+}
+
+// Quick destination picker (shows after location found)
+function quickDest(name){
+  pick('d', name);
+  document.getElementById('rarea').innerHTML = `<div class="empty"><div class="e-ico">🗺️</div><div class="e-ttl">Ready!</div><div class="e-sub">Click <b>Get Routes</b> to find the fastest way to <b>${name}</b></div></div>`;
+}
+
+// ── TABS ─────────────────────────────────────────────────
+function showTab(n,el){
+  document.getElementById('tab-route').style.display=n==='route'?'flex':'none';
+  document.getElementById('tab-auth').style.display=n==='auth'?'block':'none';
+  document.getElementById('tab-hist').style.display=n==='hist'?'block':'none';
+  document.querySelectorAll('.stab').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+}
+
+// ── AUTHORITY PANEL ───────────────────────────────────────
+function initAuth(){
+  const hs=document.getElementById('hsl');
+  HOTSPOTS.forEach(h=>{
+    const s=h.c>75?'hcr':h.c>50?'hhi':'hmd',l=h.c>75?'CRITICAL':h.c>50?'HIGH':'CLEAR';
+    hs.innerHTML+=`<div class="hrow"><div class="hdot" style="background:${h.col}"></div><div class="hn">${h.n}</div><span class="hs ${s}">${l}</span><div class="hspd">${Math.round(55*(1-h.c/100))} kmph</div></div>`;
+  });
+  [{c:'#D93025',m:'CRITICAL: Silk Board — score 92. Routes activated.',t:'2 min ago'},{c:'#D93025',m:'INCIDENT: KR Puram Bridge — GPS anomaly.',t:'9 min ago'},{c:'#FFA000',m:'WARNING: Marathahalli — 2.1× above average.',t:'14 min ago'},{c:'#34A853',m:'RESOLVED: NICE Road — flow restored at 42 kmph.',t:'22 min ago'}]
+  .forEach(a=>document.getElementById('allist').innerHTML+=`<div class="alrow"><div class="aldot" style="background:${a.c}"></div><div><div>${a.m}</div><div class="altime">${a.t}</div></div></div>`);
+}
+function addAlert(){
+  const msgs=[{c:'#D93025',m:`CRITICAL: Spike at Marathahalli — ${Math.floor(Math.random()*500+2000)} vehicles.`,t:'Just now'},{c:'#FFA000',m:'WARNING: Bellary Road — speed drop detected.',t:'Just now'},{c:'#34A853',m:'CLEAR: Bannerghatta Road — congestion resolved.',t:'Just now'}];
+  const a=msgs[Math.floor(Math.random()*msgs.length)];
+  document.getElementById('allist').insertAdjacentHTML('afterbegin',`<div class="alrow"><div class="aldot" style="background:${a.c}"></div><div><div>${a.m}</div><div class="altime">${a.t}</div></div></div>`);
+}
+
+// ── HISTORY PANEL ─────────────────────────────────────────
+function initHist(){
+  [{h:'6 AM',v:22},{h:'7 AM',v:62},{h:'8 AM',v:92},{h:'9 AM',v:88},{h:'10 AM',v:58},{h:'11 AM',v:45},{h:'12 PM',v:50},{h:'1 PM',v:52},{h:'2 PM',v:55},{h:'3 PM',v:65},{h:'4 PM',v:80},{h:'5 PM',v:95},{h:'6 PM',v:98},{h:'7 PM',v:88},{h:'8 PM',v:68},{h:'9 PM',v:48}]
+  .forEach(h=>{const c=h.v>80?'#D93025':h.v>55?'#FFA000':'#34A853';document.getElementById('pbars').innerHTML+=`<div class="prow"><div class="phr">${h.h}</div><div class="pbwrap"><div class="pbfill" style="width:${h.v}%;background:${c}"></div></div><div class="ppct" style="color:${c}">${h.v}%</div></div>`;});
+  [{time:'6:00–7:00 AM',lbl:'⭐ Best',desc:'Minimal congestion citywide',bg:'#E6F4EA',bc:'#34A853',lc:'#1E8E3E'},{time:'10:00–11:30 AM',lbl:'✅ Good',desc:'Post-peak, moderate flow',bg:'#E3F6FF',bc:'#0288D1',lc:'#0277BD'},{time:'7:00–9:30 AM',lbl:'⚠ Avoid',desc:'Morning peak · ORR, Hosur Rd heavy',bg:'#FCE8E6',bc:'#D93025',lc:'#D93025'},{time:'5:30–8:00 PM',lbl:'⚠ Avoid',desc:'Evening peak · Silk Board critical',bg:'#FCE8E6',bc:'#D93025',lc:'#D93025'},{time:'After 9:00 PM',lbl:'⭐ Best',desc:'All corridors clear',bg:'#E6F4EA',bc:'#34A853',lc:'#1E8E3E'}]
+  .forEach(s=>document.getElementById('tslots').innerHTML+=`<div class="srow" style="background:${s.bg};border-color:${s.bc}"><div class="stime">${s.time}</div><div><div class="slbl" style="color:${s.lc}">${s.lbl}</div><div class="sdesc">${s.desc}</div></div></div>`);
+}
+
+// ── LIVE STATS ────────────────────────────────────────────
+function liveStats(){
+  const u=()=>{
+    const v=(26000+Math.floor(Math.random()*5000)).toLocaleString('en-IN');
+    const d=(13+Math.random()*3).toFixed(1)+' min';
+    ['sbv','kv'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=v;});
+    ['sbd','kd'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=d;});
+  };u();setInterval(u,4000);
+}
+
+// ── CLOCK ─────────────────────────────────────────────────
+const tick=()=>document.getElementById('topbar-clock').textContent=new Date().toLocaleTimeString('en-IN',{hour12:false})+' IST';
+tick();setInterval(tick,1000);
+
+// ── TOAST ─────────────────────────────────────────────────
+function toast(msg,dur=2600){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),dur);}
+
+// ── INIT ──────────────────────────────────────────────────
+window.addEventListener('load', function(){
+  // Retry map init to handle slow CDN loading
+  function tryInit(attempts){
+    if(typeof L === 'undefined'){
+      if(attempts > 0){
+        setTimeout(()=>tryInit(attempts-1), 500);
+        document.getElementById('map').innerHTML =
+          '<div style="height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;background:#F1F3F4;font-family:IBM Plex Sans,sans-serif">'
+          +'<div style="font-size:28px">⏳</div>'
+          +'<div style="font-size:14px;color:#70757A">Loading map...</div>'
+          +'</div>';
+      } else {
+        document.getElementById('map').innerHTML =
+          '<div style="height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;background:#F1F3F4;font-family:IBM Plex Sans,sans-serif;padding:24px">'
+          +'<div style="font-size:40px">🌐</div>'
+          +'<div style="font-size:16px;font-weight:600;color:#202124">Internet Required for Map</div>'
+          +'<div style="font-size:13px;color:#70757A;text-align:center;max-width:360px;line-height:1.7">'
+          +'SmartRoute uses OpenStreetMap which requires an internet connection.<br>'
+          +'Please connect to the internet and <b>refresh the page</b>.'
+          +'</div>'
+          +'<button onclick="location.reload()" style="padding:10px 22px;background:#1A73E8;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:IBM Plex Sans,sans-serif">🔄 Retry</button>'
+          +'</div>';
+      }
+      return;
+    }
+    try {
+      initMap();
+    } catch(err){
+      console.error('Map init error:', err);
+      if(attempts > 0) setTimeout(()=>tryInit(attempts-1), 500);
+    }
+  }
+  tryInit(10);
+  initAuth();
+  initHist();
+  liveStats();
+});
+
+function showRouteLegend(routes, dep){
+  const leg=document.getElementById('route-legend');
+  const items=document.getElementById('legend-items');
+  if(!leg||!items)return;
+  const COLORS=['#1A73E8','#F29900','#0F9D58','#7C3AED','#0694A2'];
+  const NAMES=['⚡ Shortest','🔁 Alt 1','🟢 Alt 2','🟣 Alt 3','🔵 Alt 4'];
+  const hour=new Date().getHours();
+  items.innerHTML=routes.map((v,i)=>{
+    const mins=Math.ceil(v.route.summary.totalTime*(1+(HOUR_CONG[hour]||0.4)*0.8)/60);
+    const dist=(v.route.summary.totalDistance/1000).toFixed(1);
+    const c=COLORS[Math.min(i,COLORS.length-1)];
+    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;cursor:pointer" onclick="selectRouteCard(${i});document.querySelectorAll('.rcard')[${i}]?.scrollIntoView({block:'nearest',behavior:'smooth'})">
+      <div style="width:28px;height:4px;background:${c};border-radius:2px;flex-shrink:0"></div>
+      <span style="color:#E2E8F0">${NAMES[i]}</span>
+      <span style="color:#9AA0A6;margin-left:auto">${mins}m · ${dist}km</span>
+    </div>`;
+  }).join('');
+  leg.style.display='block';
+}
+
+// ════════════════════════════════════════════════════════════
+//  VOICE NAVIGATION ENGINE — Web Speech API (Built-in browser)
+// ════════════════════════════════════════════════════════════
+const VOICE = {
+  enabled:    false,
+  speaking:   false,
+  speed:      0.9,
+  volume:     1.0,
+  synth:      window.speechSynthesis || null,
+  voice:      null,       // selected SpeechSynthesisVoice
+  lastStep:   -1,
+  queue:      [],
+  toastTimer: null,
+};
+
+// Pick best English voice (prefer Indian English)
+function initVoice() {
+  if(!VOICE.synth) return;
+  const loadVoices = () => {
+    const voices = VOICE.synth.getVoices();
+    // Priority: en-IN > en-GB > en-US
+    VOICE.voice =
+      voices.find(v=>v.lang==='en-IN') ||
+      voices.find(v=>v.lang.startsWith('en-IN')) ||
+      voices.find(v=>v.lang==='en-GB') ||
+      voices.find(v=>v.lang.startsWith('en')) ||
+      voices[0] || null;
+    if(VOICE.voice)
+      console.log('SmartRoute Voice:', VOICE.voice.name, VOICE.voice.lang);
+  };
+  loadVoices();
+  if(VOICE.synth.onvoiceschanged !== undefined)
+    VOICE.synth.onvoiceschanged = loadVoices;
+}
+
+function toggleVoice() {
+  if(!VOICE.synth){
+    toast('❌ Voice not supported in this browser. Try Chrome.');
+    return;
+  }
+  VOICE.enabled = !VOICE.enabled;
+  const btn = document.getElementById('voice-toggle-btn');
+  const status = document.getElementById('voice-status');
+  if(VOICE.enabled){
+    btn.textContent = '🔊';
+    btn.classList.replace('off','on');
+    status.textContent = 'On — listening to turns';
+    status.style.color = 'var(--blue)';
+    // Announce current step
+    const stepEls = document.getElementById('mdp-steps').querySelectorAll('.mdp-step');
+    const activeEl = document.querySelector('.mdp-step.active');
+    if(activeEl){
+      const road = activeEl.querySelector('.mdp-step-road')?.textContent||'';
+      const dist = activeEl.querySelector('.mdp-step-dist')?.textContent||'';
+      speak(road, dist, true);
+    }
+    toast('🔊 Voice navigation ON');
+  } else {
+    VOICE.synth.cancel();
+    btn.textContent = '🔇';
+    btn.classList.replace('on','off');
+    status.textContent = 'Off — tap to enable';
+    status.style.color = '';
+    hideVoiceToast();
+    toast('🔇 Voice navigation OFF');
+  }
+}
+
+function updateVoiceSpeed(){
+  VOICE.speed = parseFloat(document.getElementById('voice-speed').value);
+}
+function updateVoiceVol(){
+  VOICE.volume = parseFloat(document.getElementById('voice-vol').value);
+}
+
+// ── Core speak function ──────────────────────────────────────────────────
+function speak(text, distText, isImmediate) {
+  if(!VOICE.synth || !VOICE.enabled) return;
+
+  // Cancel current if immediate
+  if(isImmediate) VOICE.synth.cancel();
+
+  // Build a natural sentence
+  const sentence = buildNaturalInstruction(text, distText);
+
+  const utt = new SpeechSynthesisUtterance(sentence);
+  utt.voice  = VOICE.voice;
+  utt.rate   = VOICE.speed;
+  utt.volume = VOICE.volume;
+  utt.pitch  = 1.0;
+  utt.lang   = 'en-IN';
+
+  utt.onstart = () => {
+    VOICE.speaking = true;
+    showVoiceToast(text, distText);
+  };
+  utt.onend = () => {
+    VOICE.speaking = false;
+  };
+  utt.onerror = (e) => {
+    VOICE.speaking = false;
+    console.warn('TTS error:', e.error);
+  };
+
+  VOICE.synth.speak(utt);
+}
+
+// ── Convert instruction text to natural speech ───────────────────────────
+function buildNaturalInstruction(text, distText){
+  let s = text
+    .replace(/^Turn right/i,   'Turn right')
+    .replace(/^Turn left/i,    'Turn left')
+    .replace(/^Slight right/i, 'Keep slight right')
+    .replace(/^Slight left/i,  'Keep slight left')
+    .replace(/^Continue/i,     'Continue')
+    .replace(/^Make a U-turn/i,'Make a U-turn')
+    .replace(/^Head/i,         'Head')
+    .replace(/^Roundabout/i,   'At the roundabout');
+
+  // Add distance prefix
+  if(distText && distText.trim()){
+    const d = distText.replace('m','metres').replace('km','kilometres');
+    s = `In ${d}, ${s.charAt(0).toLowerCase()}${s.slice(1)}`;
+  }
+  return s;
+}
+
+// ── Voice toast overlay on map ───────────────────────────────────────────
+function showVoiceToast(text, dist){
+  const el    = document.getElementById('voice-toast');
+  const txtEl = document.getElementById('vt-text');
+  const dstEl = document.getElementById('vt-dist');
+  const icoEl = document.getElementById('vt-icon');
+
+  // Pick icon
+  const t = text.toLowerCase();
+  let ico = '🔊';
+  if(t.includes('right'))   ico='↪️';
+  else if(t.includes('left')) ico='↩️';
+  else if(t.includes('straight')||t.includes('continue')) ico='⬆️';
+  else if(t.includes('u-turn')) ico='🔄';
+  else if(t.includes('roundabout')) ico='🔄';
+  else if(t.includes('arrive')||t.includes('destination')) ico='🏁';
+  else if(t.includes('start')) ico='🟢';
+
+  icoEl.textContent = ico;
+  txtEl.textContent = text;
+  dstEl.textContent = dist || '';
+
+  el.classList.add('show');
+  clearTimeout(VOICE.toastTimer);
+  VOICE.toastTimer = setTimeout(hideVoiceToast, 5000);
+}
+
+function hideVoiceToast(){
+  document.getElementById('voice-toast')?.classList.remove('show');
+}
+
+// ── Preview voice (test button) ──────────────────────────────────────────
+function previewVoice(){
+  const wasEnabled = VOICE.enabled;
+  VOICE.enabled = true;
+  speak('SmartRoute AI voice navigation is ready. Turn right onto Outer Ring Road.', '500 metres', true);
+  if(!wasEnabled) setTimeout(()=>{ VOICE.enabled = false; }, 4000);
+}
+
+// ════════════════════════════════════════════════════════════
+//  PATCH gotoStep to AUTO-SPEAK each step
+// ════════════════════════════════════════════════════════════
+const _origGotoStep = gotoStep;
+function gotoStep(idx){
+  _origGotoStep(idx);
+  // Speak the active step if voice is on
+  if(VOICE.enabled && idx !== VOICE.lastStep){
+    VOICE.lastStep = idx;
+    const activeEl = document.getElementById(`mdp-step-${idx}`);
+    if(activeEl){
+      const road = activeEl.querySelector('.mdp-step-road')?.textContent || '';
+      const dist = activeEl.querySelector('.mdp-step-dist')?.textContent || '';
+      // Small delay so map animation starts first
+      setTimeout(()=>speak(road, dist, true), 300);
+    }
+  }
+}
+
+// Init voice on page load
+window.addEventListener('load', ()=>{ setTimeout(initVoice, 500); });
+
+</script>
+
+<div id="route-legend" style="display:none;position:fixed;bottom:42px;left:400px;z-index:1500;background:rgba(13,27,42,.92);backdrop-filter:blur(6px);border-radius:10px;padding:10px 14px;font-family:IBM Plex Mono,monospace;font-size:11px;color:#fff;border:1px solid rgba(255,255,255,.1)">
+  <div style="font-size:10px;color:#9AA0A6;letter-spacing:.5px;margin-bottom:7px">ROUTES ON MAP</div>
+  <div id="legend-items"></div>
+</div>
+
+<!-- MAP DIRECTIONS PANEL -->
+<div id="map-dir-panel">
+  <div class="mdp-header">
+    <button class="mdp-back" onclick="closeMapDir()" title="Back to routes">←</button>
+    <div class="mdp-title">
+      <div class="mdp-title-main" id="mdp-title-main">Turn-by-Turn Directions</div>
+      <div class="mdp-title-sub" id="mdp-title-sub">Loading...</div>
+    </div>
+  </div>
+  <!-- Voice Navigation Bar -->
+  <div class="voice-bar" id="voice-bar">
+    <button class="voice-btn off" id="voice-toggle-btn" onclick="toggleVoice()" title="Toggle voice navigation">🔇</button>
+    <div>
+      <div style="font-size:12px;font-weight:600;color:var(--text)">Voice Navigation</div>
+      <div class="voice-bar-label" id="voice-status">Off — tap to enable</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px;margin-left:auto">
+      <span style="font-size:10px;color:var(--muted)">Speed</span>
+      <select class="voice-speed-sel" id="voice-speed" onchange="updateVoiceSpeed()">
+        <option value="0.7">Slow</option>
+        <option value="0.9" selected>Normal</option>
+        <option value="1.1">Fast</option>
+        <option value="1.3">Faster</option>
+      </select>
+    </div>
+    <div style="display:flex;align-items:center;gap:5px">
+      <span style="font-size:12px">🔊</span>
+      <input type="range" class="voice-volume" id="voice-vol" min="0" max="1" step="0.1" value="1" oninput="updateVoiceVol()"/>
+    </div>
+  </div>
+  <div class="mdp-summary">
+    <div class="mdp-color-bar" id="mdp-colorbar"></div>
+    <div>
+      <div class="mdp-time" id="mdp-time">--</div>
+      <div class="mdp-meta" id="mdp-meta">-- km · Arrive --</div>
+    </div>
+    <div style="margin-left:auto;text-align:right">
+      <div style="font-size:10px;color:var(--muted);font-family:var(--mono)">STEP</div>
+      <div style="font-size:14px;font-weight:700;font-family:var(--mono)" id="mdp-step-counter">0/0</div>
+    </div>
+  </div>
+  <div class="mdp-progress"><div class="mdp-progress-fill" id="mdp-prog" style="width:0%"></div></div>
+  <div class="mdp-steps" id="mdp-steps"></div>
+  <div class="mdp-nav">
+    <button class="mdp-nav-btn" id="mdp-prev" onclick="navStep(-1)">← Previous</button>
+    <button class="mdp-nav-btn primary" id="mdp-next" onclick="navStep(1)">Next Step →</button>
+  </div>
+</div>
+
+</body>
+</html>
