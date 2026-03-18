@@ -3,7 +3,7 @@
 
 ---
 
-## 📁 YOUR KEY FILES (Use These)
+## YOUR KEY FILES (Use These)
 
 | File | What it is | How to use |
 |------|-----------|-----------|
@@ -14,21 +14,21 @@
 
 ---
 
-## 🚀 Quick Start (2 steps)
+Quick Start (2 steps)
 
-### Step 1 — Run Backend
+Step 1 — Run Backend
 ```bash
 pip install fastapi uvicorn requests python-dotenv
 uvicorn smartroute_backend:app --reload --port 8000
 ```
 Visit: http://localhost:8000/docs
 
-### Step 2 — Open Frontend
+Step 2 — Open Frontend
 Double-click `smartroute_final.html` in Chrome
 
 ---
 
-## ✅ Features
+✅ Features
 
 - 🗺 Real map (OpenStreetMap — FREE, no API key needed)
 - 📍 GPS current location with pulsing dot
@@ -45,7 +45,7 @@ Double-click `smartroute_final.html` in Chrome
 
 ---
 
-## 🔑 Get Google Maps API Key (optional — for better routing)
+🔑 Get Google Maps API Key (optional — for better routing)
 
 1. Go to https://console.cloud.google.com
 2. Create project → Enable: Maps JS API + Directions API + Places API
@@ -54,7 +54,7 @@ Double-click `smartroute_final.html` in Chrome
 
 ---
 
-## 🔗 Backend API Endpoints
+🔗 Backend API Endpoints
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
